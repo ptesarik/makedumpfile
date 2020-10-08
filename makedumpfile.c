@@ -1433,8 +1433,6 @@ get_structure_info(void)
 int
 get_srcfile_info(void)
 {
-	TYPEDEF_SRCFILE_INIT(pud_t, "pud_t");
-
 	return TRUE;
 }
 
@@ -1752,11 +1750,6 @@ write_vmcoreinfo_data(void)
 	if (info->kaslr_offset)
 		fprintf(info->file_vmcoreinfo, "%s%lx\n", STR_KERNELOFFSET,
 			info->kaslr_offset);
-
-	/*
-	 * write the source file of 1st kernel
-	 */
-	WRITE_SRCFILE("pud_t", pud_t);
 }
 
 int
@@ -2131,8 +2124,6 @@ read_vmcoreinfo(void)
 	READ_NUMBER("PG_hwpoison", PG_hwpoison);
 	READ_NUMBER("SECTION_SIZE_BITS", SECTION_SIZE_BITS);
 	READ_NUMBER("MAX_PHYSMEM_BITS", MAX_PHYSMEM_BITS);
-
-	READ_SRCFILE("pud_t", pud_t);
 
 	READ_NUMBER("PAGE_BUDDY_MAPCOUNT_VALUE", PAGE_BUDDY_MAPCOUNT_VALUE);
 	READ_NUMBER("PAGE_OFFLINE_MAPCOUNT_VALUE", PAGE_OFFLINE_MAPCOUNT_VALUE);
