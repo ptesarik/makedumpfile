@@ -25,6 +25,7 @@
 #include <limits.h>
 #include <assert.h>
 #include <zlib.h>
+#include <libkdumpfile/addrxlat.h>
 
 struct symbol_table	symbol_table;
 struct size_table	size_table;
@@ -131,6 +132,60 @@ initialize_tables(void)
 	INITIALIZE_LONG_TABLE(offset_table, NOT_FOUND_STRUCTURE);
 	INITIALIZE_LONG_TABLE(array_table, NOT_FOUND_STRUCTURE);
 	INITIALIZE_LONG_TABLE(number_table, NOT_FOUND_NUMBER);
+}
+
+/*
+ * Translate a virtual address to a physical address using a specific
+ * kdump context.
+ */
+unsigned long long
+vaddr_to_paddr_ctx(unsigned long vaddr, kdump_ctx_t *ctx)
+{
+	addrxlat_fulladdr_t faddr;
+	addrxlat_ctx_t *xlatctx;
+	addrxlat_sys_t *xlatsys;
+	addrxlat_status xlaterr;
+	kdump_status status;
+
+	status = kdump_get_addrxlat(ctx, &xlatctx, &xlatsys);
+	if (status != KDUMP_OK) {
+		ERRMSG("Can't get address translation: %s.\n",
+		       kdump_get_err(ctx));
+		return NOT_PADDR;
+	}
+
+	faddr.addr = vaddr;
+	faddr.as = ADDRXLAT_KVADDR;
+	xlaterr = addrxlat_fulladdr_conv(&faddr, ADDRXLAT_MACHPHYSADDR,
+					 xlatctx, xlatsys);
+	if (xlaterr != ADDRXLAT_OK) {
+		ERRMSG("Can't convert a virtual address (0x%lx) to physical address: %s.\n",
+		       vaddr, addrxlat_ctx_get_err(xlatctx));
+		faddr.addr = NOT_PADDR;
+	}
+
+	addrxlat_sys_decref(xlatsys);
+	addrxlat_ctx_decref(xlatctx);
+
+	return faddr.addr;
+}
+
+/*
+ * Translate a virtual address to a physical address.
+ */
+unsigned long long
+vaddr_to_paddr(unsigned long vaddr)
+{
+	return vaddr_to_paddr_ctx(vaddr, info->ctx_memory);
+}
+
+/*
+ * Translate a Xen virtual address to a machine address.
+ */
+static unsigned long long
+xen_vaddr_to_maddr(unsigned long vaddr)
+{
+	return vaddr_to_paddr_ctx(vaddr, info->ctx_memory_xen);
 }
 
 /*
@@ -318,26 +373,22 @@ int
 readmem(int type_addr, unsigned long long addr, void *bufptr, size_t size)
 {
 	size_t read_size, size_orig = size;
-	unsigned long long paddr;
+	kdump_paddr_t paddr;
 
 next_page:
 	switch (type_addr) {
 	case VADDR:
-		if ((paddr = vaddr_to_paddr(addr)) == NOT_PADDR) {
-			ERRMSG("Can't convert a virtual address(%llx) to physical address.\n",
-			    addr);
+		paddr = vaddr_to_paddr(addr);
+		if (paddr == NOT_PADDR)
 			goto error;
-		}
 		break;
 	case PADDR:
 		paddr = addr;
 		break;
 	case VADDR_XEN:
-		if ((paddr = kvtop_xen(addr)) == NOT_PADDR) {
-			ERRMSG("Can't convert a virtual address(%llx) to machine address.\n",
-			    addr);
+		paddr = xen_vaddr_to_maddr(addr);
+		if (paddr == NOT_PADDR)
 			goto error;
-		}
 		break;
 	default:
 		ERRMSG("Invalid address type (%d).\n", type_addr);
@@ -9165,7 +9216,11 @@ out:
 void
 print_vtop(void)
 {
-	unsigned long long paddr;
+	addrxlat_fulladdr_t faddr;
+	addrxlat_ctx_t *ctx;
+	addrxlat_sys_t *sys;
+	kdump_status status;
+	addrxlat_status axerr;
 
 	if (!info->vaddr_for_vtop)
 		return;
@@ -9173,10 +9228,25 @@ print_vtop(void)
 	MSG("\n");
 	MSG("Translating virtual address %lx to physical address.\n", info->vaddr_for_vtop);
 
-	paddr = vaddr_to_paddr(info->vaddr_for_vtop);
-
+	faddr.as = ADDRXLAT_KVADDR;
+	faddr.addr = info->vaddr_for_vtop;
+	status = kdump_get_addrxlat(info->ctx_memory, &ctx, &sys);
+	if (status != KDUMP_OK) {
+		ERRMSG("Can't get address translation: %s.\n",
+		       kdump_get_err(info->ctx_memory));
+		return;
+	}
+	axerr = addrxlat_fulladdr_conv(&faddr, ADDRXLAT_KPHYSADDR,
+				       ctx, sys);
 	MSG("VIRTUAL           PHYSICAL\n");
-	MSG("%16lx  %llx\n", info->vaddr_for_vtop, paddr);
+	if (axerr == ADDRXLAT_OK)
+		MSG("%16lx  %llx\n", info->vaddr_for_vtop,
+		    (unsigned long long) faddr.addr);
+	else {
+		MSG("%16lx  -\n", info->vaddr_for_vtop);
+		MSG("    %s\n", addrxlat_ctx_get_err(ctx));
+	}
+
 	MSG("\n");
 
 	info->vaddr_for_vtop = 0;
