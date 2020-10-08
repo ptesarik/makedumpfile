@@ -135,15 +135,6 @@ enum {
 	VADDR_XEN,
 };
 
-/*
- * State of mmap(2)
- */
-enum {
-	MMAP_DISABLE,
-	MMAP_TRY,
-	MMAP_ENABLE,
-};
-
 static inline int
 test_bit(int nr, unsigned long addr)
 {

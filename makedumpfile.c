@@ -315,55 +315,6 @@ calculate_len_buf_out(long page_size)
 #define BITMAP_SECT_LEN 4096
 static inline int is_dumpable(struct dump_bitmap *, mdf_pfn_t, struct cycle *cycle);
 
-static int
-update_mmap_range(off_t offset, int initial) {
-	off_t start_offset, end_offset;
-	off_t map_size;
-	off_t max_offset = get_max_file_offset();
-	off_t pt_load_end = offset_to_pt_load_end(offset);
-
-	/*
-	 * offset for mmap() must be page aligned.
-	 */
-	start_offset = roundup(offset, info->page_size);
-	end_offset = MIN(max_offset, round(pt_load_end, info->page_size));
-
-	if (!pt_load_end || (end_offset - start_offset) <= 0)
-		return FALSE;
-
-	map_size = MIN(end_offset - start_offset, info->mmap_region_size);
-
-	info->mmap_buf = mmap(NULL, map_size, PROT_READ, MAP_PRIVATE,
-				     info->fd_memory, start_offset);
-
-	if (info->mmap_buf == MAP_FAILED) {
-		if (!initial)
-			DEBUG_MSG("Can't map [%llx-%llx] with mmap()\n %s",
-				  (ulonglong)start_offset,
-				  (ulonglong)(start_offset + map_size),
-				  strerror(errno));
-		return FALSE;
-	}
-
-	info->mmap_start_offset = start_offset;
-	info->mmap_end_offset = start_offset + map_size;
-
-	return TRUE;
-}
-
-int
-initialize_mmap(void) {
-	unsigned long long phys_start;
-	info->mmap_region_size = MAP_REGION;
-	info->mmap_buf = MAP_FAILED;
-
-	get_pt_load(0, &phys_start, NULL, NULL, NULL);
-	if (!update_mmap_range(paddr_to_offset(phys_start), 1))
-		return FALSE;
-
-	return TRUE;
-}
-
 int
 readmem(int type_addr, unsigned long long addr, void *bufptr, size_t size)
 {
@@ -700,6 +651,7 @@ static int
 do_open_dump_memory(int *fdp, kdump_ctx_t **ctxp)
 {
 	int fd;
+	kdump_mmap_policy_t mmap_policy;
 	kdump_ctx_t *ctx;
 
 	if ((fd = open(info->name_memory, O_RDONLY)) < 0) {
@@ -712,6 +664,14 @@ do_open_dump_memory(int *fdp, kdump_ctx_t **ctxp)
 	if (!ctx) {
 		ERRMSG("Can't allocate libkdumpfile context.");
 		goto error;
+	}
+	mmap_policy = info->flag_usemmap
+		? KDUMP_MMAP_TRY_ONCE
+		: KDUMP_MMAP_NEVER;
+	if (kdump_set_number_attr(ctx, KDUMP_ATTR_FILE_MMAP_POLICY,
+				  mmap_policy) != KDUMP_OK) {
+		ERRMSG("Can't set mmap policy: %s\n", kdump_get_err(ctx));
+		goto error_ctx;
 	}
 	if (kdump_set_number_attr(ctx, KDUMP_ATTR_FILE_FD, fd) != KDUMP_OK) {
 		ERRMSG("Can't initialize dump memory(%s). %s\n",
@@ -3724,16 +3684,22 @@ out:
 	if (info->dump_level & DL_EXCLUDE_FREE)
 		setup_page_is_buddy();
 
-	if (info->flag_usemmap == MMAP_TRY ) {
-		if (initialize_mmap()) {
+	if (info->flag_usemmap == TRUE) {
+		kdump_attr_t attr;
+		if (kdump_get_attr(info->ctx_memory,
+				   KDUMP_ATTR_FILE_MMAP_POLICY,
+				   &attr) != KDUMP_OK) {
+			DEBUG_MSG("Cannot get mmap() policy: %s\n",
+				  kdump_get_err(info->ctx_memory));
+		} else if (attr.val.number == KDUMP_MMAP_ALWAYS) {
 			DEBUG_MSG("mmap() is available on the kernel.\n");
-			info->flag_usemmap = MMAP_ENABLE;
-		} else {
+		} else if (attr.val.number == KDUMP_MMAP_NEVER) {
 			DEBUG_MSG("The kernel doesn't support mmap(),");
 			DEBUG_MSG("read() will be used instead.\n");
-			info->flag_usemmap = MMAP_DISABLE;
+		} else {
+			DEBUG_MSG("Cannot determine mmap() support.\n");
 		}
-        } else if (info->flag_usemmap == MMAP_DISABLE)
+        } else
 		DEBUG_MSG("mmap() is disabled by specified option '--non-mmap'.\n");
 
 	return TRUE;
@@ -10837,7 +10803,7 @@ main(int argc, char *argv[])
 	/*
 	 * By default, makedumpfile try to use mmap(2) to read /proc/vmcore.
 	 */
-	info->flag_usemmap = MMAP_TRY;
+	info->flag_usemmap = TRUE;
 
 	info->block_order = DEFAULT_ORDER;
 	message_level = DEFAULT_MSG_LEVEL;
@@ -10944,7 +10910,7 @@ main(int argc, char *argv[])
 			info->name_xen_syms = optarg;
 			break;
 		case OPT_NON_MMAP:
-			info->flag_usemmap = MMAP_DISABLE;
+			info->flag_usemmap = FALSE;
 			break;
 		case OPT_XEN_VMCOREINFO:
 			info->flag_read_vmcoreinfo = 1;
