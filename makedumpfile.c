@@ -8983,8 +8983,6 @@ initial_xen(void)
 	return FALSE;
 #else
 	int xen_info_required = TRUE;
-	off_t offset;
-	unsigned long size;
 
 #ifndef __x86_64__
 	if (DL_EXCLUDE_ZERO < info->max_dump_level) {
@@ -9055,7 +9053,6 @@ initial_xen(void)
 		/*
 		 * Get the debug information from /proc/vmcore
 		 */
-		get_vmcoreinfo_xen(&offset, &size);
 		if (!read_vmcoreinfo_xen())
 			return FALSE;
 	}
