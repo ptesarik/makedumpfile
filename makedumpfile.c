@@ -318,125 +318,6 @@ calculate_len_buf_out(long page_size)
 
 #define BITMAP_SECT_LEN 4096
 static inline int is_dumpable(struct dump_bitmap *, mdf_pfn_t, struct cycle *cycle);
-unsigned long
-pfn_to_pos(mdf_pfn_t pfn)
-{
-	unsigned long desc_pos;
-	mdf_pfn_t i;
-
-	desc_pos = info->valid_pages[pfn / BITMAP_SECT_LEN];
-	for (i = round(pfn, BITMAP_SECT_LEN); i < pfn; i++)
-		if (is_dumpable(info->bitmap_memory, i, NULL))
-			desc_pos++;
-
-	return desc_pos;
-}
-
-unsigned long
-pfn_to_pos_parallel(mdf_pfn_t pfn, struct dump_bitmap* bitmap_memory_parallel)
-{
-	unsigned long desc_pos;
-	mdf_pfn_t i;
-
-	desc_pos = info->valid_pages[pfn / BITMAP_SECT_LEN];
-	for (i = round(pfn, BITMAP_SECT_LEN); i < pfn; i++)
-		if (is_dumpable(bitmap_memory_parallel, i, NULL))
-			desc_pos++;
-
-	return desc_pos;
-}
-
-int
-read_page_desc(unsigned long long paddr, page_desc_t *pd)
-{
-	struct disk_dump_header *dh;
-	unsigned long desc_pos;
-	mdf_pfn_t pfn;
-	off_t offset;
-
-	/*
-	 * Find page descriptor
-	 */
-	dh = info->dh_memory;
-	offset
-	    = (DISKDUMP_HEADER_BLOCKS + dh->sub_hdr_size + dh->bitmap_blocks)
-		* dh->block_size;
-	pfn = paddr_to_pfn(paddr);
-	desc_pos = pfn_to_pos(pfn);
-	offset += (off_t)desc_pos * sizeof(page_desc_t);
-	if (lseek(info->fd_memory, offset, SEEK_SET) < 0) {
-		ERRMSG("Can't seek %s. %s\n",
-				 info->name_memory, strerror(errno));
-		return FALSE;
-	}
-
-	/*
-	 * Read page descriptor
-	 */
-	if (read(info->fd_memory, pd, sizeof(*pd)) != sizeof(*pd)) {
-		ERRMSG("Can't read %s. %s\n",
-				info->name_memory, strerror(errno));
-		return FALSE;
-	}
-
-	/*
-	 * Sanity check
-	 */
-	if (pd->size > dh->block_size)
-		return FALSE;
-
-	return TRUE;
-}
-
-int
-read_page_desc_parallel(int fd_memory, unsigned long long paddr,
-			page_desc_t *pd,
-			struct dump_bitmap* bitmap_memory_parallel)
-{
-	struct disk_dump_header *dh;
-	unsigned long desc_pos;
-	mdf_pfn_t pfn;
-	off_t offset;
-
-	/*
-	 * Find page descriptor
-	 */
-	dh = info->dh_memory;
-	offset
-	    = (DISKDUMP_HEADER_BLOCKS + dh->sub_hdr_size + dh->bitmap_blocks)
-		* dh->block_size;
-	pfn = paddr_to_pfn(paddr);
-	desc_pos = pfn_to_pos_parallel(pfn, bitmap_memory_parallel);
-	offset += (off_t)desc_pos * sizeof(page_desc_t);
-	if (lseek(fd_memory, offset, SEEK_SET) < 0) {
-		ERRMSG("Can't seek %s. %s\n",
-				 info->name_memory, strerror(errno));
-		return FALSE;
-	}
-
-	/*
-	 * Read page descriptor
-	 */
-	if (read(fd_memory, pd, sizeof(*pd)) != sizeof(*pd)) {
-		ERRMSG("Can't read %s. %s\n",
-				info->name_memory, strerror(errno));
-		return FALSE;
-	}
-
-	/*
-	 * Sanity check
-	 */
-	if (pd->size > dh->block_size)
-		return FALSE;
-
-	return TRUE;
-}
-
-static void
-unmap_cache(struct cache_entry *entry)
-{
-	munmap(entry->bufptr, entry->buflen);
-}
 
 static int
 update_mmap_range(off_t offset, int initial) {
@@ -474,66 +355,6 @@ update_mmap_range(off_t offset, int initial) {
 	return TRUE;
 }
 
-static int
-update_mmap_range_parallel(int fd_memory, off_t offset,
-			   struct mmap_cache *mmap_cache)
-{
-	off_t start_offset, end_offset;
-	off_t map_size;
-	off_t max_offset = get_max_file_offset();
-	off_t pt_load_end = offset_to_pt_load_end(offset);
-
-	/*
-	 * mmap_buf must be cleaned
-	 */
-	if (mmap_cache->mmap_buf != MAP_FAILED)
-		munmap(mmap_cache->mmap_buf, mmap_cache->mmap_end_offset
-					     - mmap_cache->mmap_start_offset);
-
-	/*
-	 * offset for mmap() must be page aligned.
-	 */
-	start_offset = roundup(offset, info->page_size);
-	end_offset = MIN(max_offset, round(pt_load_end, info->page_size));
-
-	if (!pt_load_end || (end_offset - start_offset) <= 0)
-		return FALSE;
-
-	map_size = MIN(end_offset - start_offset, info->mmap_region_size);
-
-	mmap_cache->mmap_buf = mmap(NULL, map_size, PROT_READ, MAP_PRIVATE,
-					fd_memory, start_offset);
-
-	if (mmap_cache->mmap_buf == MAP_FAILED) {
-		return FALSE;
-	}
-
-	mmap_cache->mmap_start_offset = start_offset;
-	mmap_cache->mmap_end_offset = start_offset + map_size;
-
-	return TRUE;
-}
-
-static int
-is_mapped_with_mmap(off_t offset) {
-
-	if (info->flag_usemmap == MMAP_ENABLE
-	    && offset >= info->mmap_start_offset
-	    && offset < info->mmap_end_offset)
-		return TRUE;
-	else
-		return FALSE;
-}
-
-static int
-is_mapped_with_mmap_parallel(off_t offset, struct mmap_cache *mmap_cache) {
-	if (offset >= mmap_cache->mmap_start_offset
-	    && offset < mmap_cache->mmap_end_offset)
-		return TRUE;
-	else
-		return FALSE;
-}
-
 int
 initialize_mmap(void) {
 	unsigned long long phys_start;
@@ -547,429 +368,11 @@ initialize_mmap(void) {
 	return TRUE;
 }
 
-static char *
-mappage_elf(unsigned long long paddr)
-{
-	off_t offset, offset2;
-
-	if (info->flag_usemmap != MMAP_ENABLE)
-		return NULL;
-
-	offset = paddr_to_offset(paddr);
-	if (!offset || page_is_fractional(offset))
-		return NULL;
-
-	offset2 = paddr_to_offset(paddr + info->page_size);
-	if (!offset2)
-		return NULL;
-
-	if (offset2 - offset != info->page_size)
-		return NULL;
-
-	if (!is_mapped_with_mmap(offset) &&
-	    !update_mmap_range(offset, 0)) {
-		ERRMSG("Can't read the dump memory(%s) with mmap().\n",
-		       info->name_memory);
-
-		ERRMSG("This kernel might have some problems about mmap().\n");
-		ERRMSG("read() will be used instead of mmap() from now.\n");
-
-		/*
-		 * Fall back to read().
-		 */
-		info->flag_usemmap = MMAP_DISABLE;
-		return NULL;
-	}
-
-	if (offset < info->mmap_start_offset ||
-	    offset + info->page_size > info->mmap_end_offset)
-		return NULL;
-
-	return info->mmap_buf + (offset - info->mmap_start_offset);
-}
-
-static char *
-mappage_elf_parallel(int fd_memory, unsigned long long paddr,
-		     struct mmap_cache *mmap_cache)
-{
-	off_t offset, offset2;
-	int flag_usemmap;
-
-	pthread_rwlock_rdlock(&info->usemmap_rwlock);
-	flag_usemmap = info->flag_usemmap;
-	pthread_rwlock_unlock(&info->usemmap_rwlock);
-	if (flag_usemmap != MMAP_ENABLE)
-		return NULL;
-
-	offset = paddr_to_offset(paddr);
-	if (!offset || page_is_fractional(offset))
-		return NULL;
-
-	offset2 = paddr_to_offset(paddr + info->page_size - 1);
-	if (!offset2)
-		return NULL;
-
-	if (offset2 - offset != info->page_size - 1)
-		return NULL;
-
-	if (!is_mapped_with_mmap_parallel(offset, mmap_cache) &&
-	    !update_mmap_range_parallel(fd_memory, offset, mmap_cache)) {
-		ERRMSG("Can't read the dump memory(%s) with mmap().\n",
-		       info->name_memory);
-
-		ERRMSG("This kernel might have some problems about mmap().\n");
-		ERRMSG("read() will be used instead of mmap() from now.\n");
-
-		/*
-		 * Fall back to read().
-		 */
-		pthread_rwlock_wrlock(&info->usemmap_rwlock);
-		info->flag_usemmap = MMAP_DISABLE;
-		pthread_rwlock_unlock(&info->usemmap_rwlock);
-		return NULL;
-	}
-
-	if (offset < mmap_cache->mmap_start_offset ||
-	    offset + info->page_size > mmap_cache->mmap_end_offset)
-		return NULL;
-
-	return mmap_cache->mmap_buf + (offset - mmap_cache->mmap_start_offset);
-}
-
-static int
-read_from_vmcore(off_t offset, void *bufptr, unsigned long size)
-{
-	const off_t failed = (off_t)-1;
-
-	if (lseek(info->fd_memory, offset, SEEK_SET) == failed) {
-		ERRMSG("Can't seek the dump memory(%s). (offset: %llx) %s\n",
-		       info->name_memory, (unsigned long long)offset, strerror(errno));
-		return FALSE;
-	}
-
-	if (read(info->fd_memory, bufptr, size) != size) {
-		ERRMSG("Can't read the dump memory(%s). %s\n",
-		       info->name_memory, strerror(errno));
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
-static int
-read_from_vmcore_parallel(int fd_memory, off_t offset, void *bufptr,
-			  unsigned long size)
-{
-	const off_t failed = (off_t)-1;
-
-	if (lseek(fd_memory, offset, SEEK_SET) == failed) {
-		ERRMSG("Can't seek the dump memory(%s). (offset: %llx) %s\n",
-		       info->name_memory, (unsigned long long)offset, strerror(errno));
-		return FALSE;
-	}
-
-	if (read(fd_memory, bufptr, size) != size) {
-		ERRMSG("Can't read the dump memory(%s). %s\n",
-		       info->name_memory, strerror(errno));
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
-/*
- * This function is specific for reading page from ELF.
- *
- * If reading the separated page on different PT_LOAD segments,
- * this function gets the page data from both segments. This is
- * worthy of ia64 /proc/vmcore. In ia64 /proc/vmcore, region 5
- * segment is overlapping to region 7 segment. The following is
- * example (page_size is 16KBytes):
- *
- *  region |       paddr        |       memsz
- * --------+--------------------+--------------------
- *     5   | 0x0000000004000000 | 0x0000000000638ce0
- *     7   | 0x0000000004000000 | 0x0000000000db3000
- *
- * In the above example, the last page of region 5 is 0x4638000
- * and the segment does not contain complete data of this page.
- * Then this function gets the data of 0x4638000 - 0x4638ce0
- * from region 5, and gets the remaining data from region 7.
- */
-static int
-readpage_elf(unsigned long long paddr, void *bufptr)
-{
-	int idx;
-	off_t offset, size;
-	void *p, *endp;
-	unsigned long long phys_start, phys_end;
-
-	p = bufptr;
-	endp = p + info->page_size;
-	while (p < endp) {
-		idx = closest_pt_load(paddr, endp - p);
-		if (idx < 0)
-			break;
-
-		get_pt_load_extents(idx, &phys_start, &phys_end, &offset, &size);
-		if (phys_start > paddr) {
-			memset(p, 0, phys_start - paddr);
-			p += phys_start - paddr;
-			paddr = phys_start;
-		}
-
-		offset += paddr - phys_start;
-		if (size > paddr - phys_start) {
-			size -= paddr - phys_start;
-			if (size > endp - p)
-				size = endp - p;
-			if (!read_from_vmcore(offset, p, size)) {
-				ERRMSG("Can't read the dump memory(%s).\n",
-				       info->name_memory);
-				return FALSE;
-			}
-			p += size;
-			paddr += size;
-		}
-		if (p < endp) {
-			size = phys_end - paddr;
-			if (size > endp - p)
-				size = endp - p;
-			memset(p, 0, size);
-			p += size;
-			paddr += size;
-		}
-	}
-
-	if (p == bufptr) {
-		ERRMSG("Attempt to read non-existent page at 0x%llx.\n",
-		       paddr);
-		return FALSE;
-	} else if (p < endp)
-		memset(p, 0, endp - p);
-
-	return TRUE;
-}
-
-static int
-readpage_elf_parallel(int fd_memory, unsigned long long paddr, void *bufptr)
-{
-	int idx;
-	off_t offset, size;
-	void *p, *endp;
-	unsigned long long phys_start, phys_end;
-
-	p = bufptr;
-	endp = p + info->page_size;
-	while (p < endp) {
-		idx = closest_pt_load(paddr, endp - p);
-		if (idx < 0)
-			break;
-
-		get_pt_load_extents(idx, &phys_start, &phys_end, &offset, &size);
-		if (phys_start > paddr) {
-			memset(p, 0, phys_start - paddr);
-			p += phys_start - paddr;
-			paddr = phys_start;
-		}
-
-		offset += paddr - phys_start;
-		if (size > paddr - phys_start) {
-			size -= paddr - phys_start;
-			if (size > endp - p)
-				size = endp - p;
-			if (!read_from_vmcore_parallel(fd_memory, offset, p,
-						       size)) {
-				ERRMSG("Can't read the dump memory(%s).\n",
-				       info->name_memory);
-				return FALSE;
-			}
-			p += size;
-			paddr += size;
-		}
-		if (p < endp) {
-			size = phys_end - paddr;
-			if (size > endp - p)
-				size = endp - p;
-			memset(p, 0, size);
-			p += size;
-			paddr += size;
-		}
-	}
-
-	if (p == bufptr) {
-		ERRMSG("Attempt to read non-existent page at 0x%llx.\n",
-		       paddr);
-		return FALSE;
-	} else if (p < endp)
-		memset(p, 0, endp - p);
-
-	return TRUE;
-}
-
-static int
-readpage_kdump_compressed(unsigned long long paddr, void *bufptr)
-{
-	page_desc_t pd;
-	char buf[info->page_size], *rdbuf;
-	int ret;
-	unsigned long retlen;
-
-	if (!is_dumpable(info->bitmap_memory, paddr_to_pfn(paddr), NULL)) {
-		ERRMSG("pfn(%llx) is excluded from %s.\n",
-				paddr_to_pfn(paddr), info->name_memory);
-		return FALSE;
-	}
-
-	if (!read_page_desc(paddr, &pd)) {
-		ERRMSG("Can't read page_desc: %llx\n", paddr);
-		return FALSE;
-	}
-
-	if (lseek(info->fd_memory, pd.offset, SEEK_SET) < 0) {
-		ERRMSG("Can't seek %s. %s\n",
-				info->name_memory, strerror(errno));
-		return FALSE;
-	}
-
-	/*
-	 * Read page data
-	 */
-	rdbuf = pd.flags & (DUMP_DH_COMPRESSED_ZLIB | DUMP_DH_COMPRESSED_LZO |
-		DUMP_DH_COMPRESSED_SNAPPY) ? buf : bufptr;
-	if (read(info->fd_memory, rdbuf, pd.size) != pd.size) {
-		ERRMSG("Can't read %s. %s\n",
-				info->name_memory, strerror(errno));
-		return FALSE;
-	}
-
-	if (pd.flags & DUMP_DH_COMPRESSED_ZLIB) {
-		retlen = info->page_size;
-		ret = uncompress((unsigned char *)bufptr, &retlen,
-					(unsigned char *)buf, pd.size);
-		if ((ret != Z_OK) || (retlen != info->page_size)) {
-			ERRMSG("Uncompress failed: %d\n", ret);
-			return FALSE;
-		}
-#ifdef USELZO
-	} else if (info->flag_lzo_support
-		   && (pd.flags & DUMP_DH_COMPRESSED_LZO)) {
-		retlen = info->page_size;
-		ret = lzo1x_decompress_safe((unsigned char *)buf, pd.size,
-					    (unsigned char *)bufptr, &retlen,
-					    LZO1X_MEM_DECOMPRESS);
-		if ((ret != LZO_E_OK) || (retlen != info->page_size)) {
-			ERRMSG("Uncompress failed: %d\n", ret);
-			return FALSE;
-		}
-#endif
-#ifdef USESNAPPY
-	} else if ((pd.flags & DUMP_DH_COMPRESSED_SNAPPY)) {
-
-		ret = snappy_uncompressed_length(buf, pd.size, (size_t *)&retlen);
-		if (ret != SNAPPY_OK) {
-			ERRMSG("Uncompress failed: %d\n", ret);
-			return FALSE;
-		}
-
-		ret = snappy_uncompress(buf, pd.size, bufptr, (size_t *)&retlen);
-		if ((ret != SNAPPY_OK) || (retlen != info->page_size)) {
-			ERRMSG("Uncompress failed: %d\n", ret);
-			return FALSE;
-		}
-#endif
-	}
-
-	return TRUE;
-}
-
-static int
-readpage_kdump_compressed_parallel(int fd_memory, unsigned long long paddr,
-				   void *bufptr,
-				   struct dump_bitmap* bitmap_memory_parallel)
-{
-	page_desc_t pd;
-	char buf[info->page_size], *rdbuf;
-	int ret;
-	unsigned long retlen;
-
-	if (!is_dumpable(bitmap_memory_parallel, paddr_to_pfn(paddr), NULL)) {
-		ERRMSG("pfn(%llx) is excluded from %s.\n",
-				paddr_to_pfn(paddr), info->name_memory);
-		return FALSE;
-	}
-
-	if (!read_page_desc_parallel(fd_memory, paddr, &pd,
-						bitmap_memory_parallel)) {
-		ERRMSG("Can't read page_desc: %llx\n", paddr);
-		return FALSE;
-	}
-
-	if (lseek(fd_memory, pd.offset, SEEK_SET) < 0) {
-		ERRMSG("Can't seek %s. %s\n",
-				info->name_memory, strerror(errno));
-		return FALSE;
-	}
-
-	/*
-	 * Read page data
-	 */
-	rdbuf = pd.flags & (DUMP_DH_COMPRESSED_ZLIB | DUMP_DH_COMPRESSED_LZO |
-		DUMP_DH_COMPRESSED_SNAPPY) ? buf : bufptr;
-	if (read(fd_memory, rdbuf, pd.size) != pd.size) {
-		ERRMSG("Can't read %s. %s\n",
-				info->name_memory, strerror(errno));
-		return FALSE;
-	}
-
-	if (pd.flags & DUMP_DH_COMPRESSED_ZLIB) {
-		retlen = info->page_size;
-		ret = uncompress((unsigned char *)bufptr, &retlen,
-					(unsigned char *)buf, pd.size);
-		if ((ret != Z_OK) || (retlen != info->page_size)) {
-			ERRMSG("Uncompress failed: %d\n", ret);
-			return FALSE;
-		}
-#ifdef USELZO
-	} else if (info->flag_lzo_support
-		   && (pd.flags & DUMP_DH_COMPRESSED_LZO)) {
-		retlen = info->page_size;
-		ret = lzo1x_decompress_safe((unsigned char *)buf, pd.size,
-					    (unsigned char *)bufptr, &retlen,
-					    LZO1X_MEM_DECOMPRESS);
-		if ((ret != LZO_E_OK) || (retlen != info->page_size)) {
-			ERRMSG("Uncompress failed: %d\n", ret);
-			return FALSE;
-		}
-#endif
-#ifdef USESNAPPY
-	} else if ((pd.flags & DUMP_DH_COMPRESSED_SNAPPY)) {
-
-		ret = snappy_uncompressed_length(buf, pd.size, (size_t *)&retlen);
-		if (ret != SNAPPY_OK) {
-			ERRMSG("Uncompress failed: %d\n", ret);
-			return FALSE;
-		}
-
-		ret = snappy_uncompress(buf, pd.size, bufptr, (size_t *)&retlen);
-		if ((ret != SNAPPY_OK) || (retlen != info->page_size)) {
-			ERRMSG("Uncompress failed: %d\n", ret);
-			return FALSE;
-		}
-#endif
-	}
-
-	return TRUE;
-}
-
 int
 readmem(int type_addr, unsigned long long addr, void *bufptr, size_t size)
 {
 	size_t read_size, size_orig = size;
 	unsigned long long paddr;
-	unsigned long long pgaddr;
-	void *pgbuf;
-	struct cache_entry *cached;
 
 next_page:
 	switch (type_addr) {
@@ -1001,43 +404,13 @@ next_page:
 	 */
 	read_size = MIN(info->page_size - PAGEOFFSET(paddr), size);
 
-	pgaddr = PAGEBASE(paddr);
 	if (NUMBER(sme_mask) != NOT_FOUND_NUMBER)
-		pgaddr = pgaddr & ~(NUMBER(sme_mask));
-	pgbuf = cache_search(pgaddr, read_size);
-	if (!pgbuf) {
-		++cache_miss;
-		cached = cache_alloc(pgaddr);
-		if (!cached)
-			goto error;
-		pgbuf = cached->bufptr;
+		paddr = paddr & ~(NUMBER(sme_mask));
 
-		if (info->flag_refiltering) {
-			if (!readpage_kdump_compressed(pgaddr, pgbuf))
-				goto error_cached;
-		} else if (info->flag_sadump) {
-			if (!readpage_sadump(pgaddr, pgbuf))
-				goto error_cached;
-		} else {
-			char *mapbuf = mappage_elf(pgaddr);
-			size_t mapoff;
-
-			if (mapbuf) {
-				pgbuf = mapbuf;
-				mapoff = mapbuf - info->mmap_buf;
-				cached->paddr = pgaddr - mapoff;
-				cached->bufptr = info->mmap_buf;
-				cached->buflen = info->mmap_end_offset -
-					info->mmap_start_offset;
-				cached->discard = unmap_cache;
-			} else if (!readpage_elf(pgaddr, pgbuf))
-				goto error_cached;
-		}
-		cache_add(cached);
-	} else
-		++cache_hit;
-
-	memcpy(bufptr, pgbuf + PAGEOFFSET(paddr), read_size);
+	if (kdump_read(info->ctx_memory, KDUMP_MACHPHYSADDR, paddr, bufptr, &read_size) != KDUMP_OK) {
+		ERRMSG("%s\n", kdump_get_err(info->ctx_memory));
+		goto error;
+	}
 
 	addr += read_size;
 	bufptr += read_size;
@@ -1048,8 +421,6 @@ next_page:
 
 	return size_orig;
 
-error_cached:
-	cache_free(cached);
 error:
 	ERRMSG("type_addr: %d, addr:%llx, size:%zd\n", type_addr, addr, size_orig);
 	return FALSE;
@@ -7491,20 +6862,8 @@ write_elf_load_segment(struct cache_data *cd_page, unsigned long long paddr,
 		       off_t off_memory, long long size)
 {
 	long page_size = info->page_size;
-	long long bufsz_write;
+	size_t bufsz_write;
 	char buf[info->page_size];
-
-	off_memory = paddr_to_offset2(paddr, off_memory);
-	if (!off_memory) {
-		ERRMSG("Can't convert physaddr(%llx) to an offset.\n",
-		    paddr);
-		return FALSE;
-	}
-	if (lseek(info->fd_memory, off_memory, SEEK_SET) < 0) {
-		ERRMSG("Can't seek the dump memory(%s). %s\n",
-		    info->name_memory, strerror(errno));
-		return FALSE;
-	}
 
 	while (size > 0) {
 		if (size >= page_size)
@@ -7512,9 +6871,10 @@ write_elf_load_segment(struct cache_data *cd_page, unsigned long long paddr,
 		else
 			bufsz_write = size;
 
-		if (read(info->fd_memory, buf, bufsz_write) != bufsz_write) {
+		if (kdump_read(info->ctx_memory, KDUMP_MACHPHYSADDR,
+			       paddr, buf, &bufsz_write) != KDUMP_OK) {
 			ERRMSG("Can't read the dump memory(%s). %s\n",
-			    info->name_memory, strerror(errno));
+			    info->name_memory, kdump_get_err(info->ctx_memory));
 			return FALSE;
 		}
 		filter_data_buffer((unsigned char *)buf, paddr, bufsz_write);
@@ -7536,40 +6896,6 @@ read_pfn(mdf_pfn_t pfn, unsigned char *buf)
 	if (!readmem(PADDR, paddr, buf, info->page_size)) {
 		ERRMSG("Can't get the page data.\n");
 		return FALSE;
-	}
-
-	return TRUE;
-}
-
-int
-read_pfn_parallel(int fd_memory, mdf_pfn_t pfn, unsigned char *buf,
-		  struct dump_bitmap* bitmap_memory_parallel,
-		  struct mmap_cache *mmap_cache)
-{
-	unsigned long long paddr;
-	unsigned long long pgaddr;
-
-	paddr = pfn_to_paddr(pfn);
-
-	pgaddr = PAGEBASE(paddr);
-
-	if (info->flag_refiltering) {
-		if (!readpage_kdump_compressed_parallel(fd_memory, pgaddr, buf,
-						      bitmap_memory_parallel)) {
-			ERRMSG("Can't get the page data.\n");
-			return FALSE;
-		}
-	} else {
-		char *mapbuf = mappage_elf_parallel(fd_memory, pgaddr,
-						    mmap_cache);
-		if (mapbuf) {
-			memcpy(buf, mapbuf, info->page_size);
-		} else {
-			if (!readpage_elf_parallel(fd_memory, pgaddr, buf)) {
-				ERRMSG("Can't get the page data.\n");
-				return FALSE;
-			}
-		}
 	}
 
 	return TRUE;
@@ -8002,12 +7328,11 @@ kdump_thread_function_cyclic(void *arg) {
 	int index = kdump_thread_args->thread_num;
 	int buf_ready;
 	int dumpable;
-	int fd_memory = 0;
+	kdump_ctx_t *ctx_memory;
+	size_t page_size;
 	struct dump_bitmap bitmap_parallel = {0};
 	struct dump_bitmap bitmap_memory_parallel = {0};
 	unsigned char *buf = NULL, *buf_out = NULL;
-	struct mmap_cache *mmap_cache =
-			MMAP_CACHE_PARALLEL(kdump_thread_args->thread_num);
 	unsigned long size_out;
 	z_stream *stream = &ZLIB_STREAM_PARALLEL(kdump_thread_args->thread_num);
 #ifdef USELZO
@@ -8017,7 +7342,8 @@ kdump_thread_function_cyclic(void *arg) {
 	buf = BUF_PARALLEL(kdump_thread_args->thread_num);
 	buf_out = BUF_OUT_PARALLEL(kdump_thread_args->thread_num);
 
-	fd_memory = FD_MEMORY_PARALLEL(kdump_thread_args->thread_num);
+	ctx_memory = CTX_MEMORY_PARALLEL(kdump_thread_args->thread_num);
+	page_size = PAGESIZE();
 
 	if (info->fd_bitmap >= 0) {
 		bitmap_parallel.buf = malloc(BUFSIZE_BITMAP);
@@ -8086,10 +7412,10 @@ kdump_thread_function_cyclic(void *arg) {
 				break;
 			}
 
-			if (!read_pfn_parallel(fd_memory, pfn, buf,
-					       &bitmap_memory_parallel,
-					       mmap_cache))
-					goto fail;
+			if (kdump_read(ctx_memory,
+				       KDUMP_MACHPHYSADDR, pfn_to_paddr(pfn),
+				       buf, &page_size) != KDUMP_OK)
+				goto fail;
 
 			filter_data_buffer_parallel(buf, pfn_to_paddr(pfn),
 							info->page_size,
