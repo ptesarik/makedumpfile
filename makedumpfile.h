@@ -776,7 +776,6 @@ unsigned long get_kvbase_arm64(void);
 
 #define __PAGE_OFFSET		(0xc0000000)
 #define KERNELBASE		PAGE_OFFSET
-#define VMALL_START     	(info->vmalloc_start)
 #define KVBASE			(SYMBOL(_stext))
 #define _SECTION_SIZE_BITS	(24)
 #define _MAX_PHYSMEM_BITS	(44)
