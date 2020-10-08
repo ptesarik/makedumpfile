@@ -3336,8 +3336,6 @@ find_kaslr_offsets()
 int
 initial(void)
 {
-	off_t offset;
-	unsigned long size;
 	int debug_info = FALSE;
 
 	if (is_xen_memory() && !initial_xen())
@@ -3436,7 +3434,6 @@ initial(void)
 	 *       than -x/-i option.
 	 */
 	if (has_vmcoreinfo()) {
-		get_vmcoreinfo(&offset, &size);
 		if (!read_vmcoreinfo())
 			return FALSE;
 		debug_info = TRUE;
