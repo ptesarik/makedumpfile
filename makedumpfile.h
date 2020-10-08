@@ -659,7 +659,7 @@ static inline int stub_true_ul(unsigned long x) { return TRUE; }
 static inline int stub_false() { return FALSE; }
 int init_kaslr_offset(void);
 unsigned long get_kaslr_offset_general(unsigned long vaddr);
-#define paddr_to_vaddr_general(X) ((X) + PAGE_OFFSET)
+unsigned long paddr_to_vaddr(unsigned long long paddr);
 
 #ifdef __aarch64__
 int get_phys_base_arm64(void);
@@ -667,10 +667,8 @@ int get_machdep_info_arm64(void);
 int get_versiondep_info_arm64(void);
 int get_xen_basic_info_arm64(void);
 int get_xen_info_arm64(void);
-#define paddr_to_vaddr_arm64(X) (((X) - info->phys_base) | PAGE_OFFSET)
 
 #define find_vmemmap()		stub_false()
-#define paddr_to_vaddr(X)	paddr_to_vaddr_arm64(X)
 #define get_phys_base()		get_phys_base_arm64()
 #define get_machdep_info()	get_machdep_info_arm64()
 #define get_versiondep_info()	get_versiondep_info_arm64()
@@ -689,7 +687,6 @@ int get_machdep_info_arm(void);
 #define get_machdep_info()	get_machdep_info_arm()
 #define get_versiondep_info()	stub_true()
 #define get_kaslr_offset(X)	stub_false()
-#define paddr_to_vaddr(X)	paddr_to_vaddr_general(X)
 #define is_phys_addr(X)		stub_true_ul(X)
 #define arch_crashkernel_mem_size()	stub_false()
 #endif /* arm */
@@ -702,7 +699,6 @@ int get_versiondep_info_x86(void);
 #define get_machdep_info()	get_machdep_info_x86()
 #define get_versiondep_info()	get_versiondep_info_x86()
 #define get_kaslr_offset(X)	stub_false()
-#define paddr_to_vaddr(X)	paddr_to_vaddr_general(X)
 #define is_phys_addr(X)		stub_true_ul(X)
 #define arch_crashkernel_mem_size()	stub_false()
 #endif /* x86 */
@@ -719,7 +715,6 @@ unsigned long long vtop4_x86_64_pagetable(unsigned long vaddr, unsigned long pag
 #define get_machdep_info()	get_machdep_info_x86_64()
 #define get_versiondep_info()	get_versiondep_info_x86_64()
 #define get_kaslr_offset(X)	get_kaslr_offset_x86_64(X)
-#define paddr_to_vaddr(X)	paddr_to_vaddr_general(X)
 #define is_phys_addr(X)		stub_true_ul(X)
 #define arch_crashkernel_mem_size()	stub_false()
 #endif /* x86_64 */
@@ -733,7 +728,6 @@ int arch_crashkernel_mem_size_ppc64(void);
 #define get_machdep_info()	get_machdep_info_ppc64()
 #define get_versiondep_info()	get_versiondep_info_ppc64()
 #define get_kaslr_offset(X)	stub_false()
-#define paddr_to_vaddr(X)	paddr_to_vaddr_general(X)
 #define is_phys_addr(X)		stub_true_ul(X)
 #define arch_crashkernel_mem_size()	arch_crashkernel_mem_size_ppc64()
 #endif          /* powerpc64 */
@@ -745,7 +739,6 @@ int get_machdep_info_ppc(void);
 #define get_machdep_info()	get_machdep_info_ppc()
 #define get_versiondep_info()	stub_true()
 #define get_kaslr_offset(X)	stub_false()
-#define paddr_to_vaddr(X)	paddr_to_vaddr_general(X)
 #define is_phys_addr(X)		stub_true_ul(X)
 #define arch_crashkernel_mem_size()	stub_false()
 #endif          /* powerpc32 */
@@ -758,7 +751,6 @@ int is_iomem_phys_addr_s390x(unsigned long addr);
 #define get_machdep_info()	get_machdep_info_s390x()
 #define get_versiondep_info()	stub_true()
 #define get_kaslr_offset(X)	stub_false()
-#define paddr_to_vaddr(X)	paddr_to_vaddr_general(X)
 #define is_phys_addr(X)		is_iomem_phys_addr_s390x(X)
 #define arch_crashkernel_mem_size()	stub_false()
 #endif          /* s390x */
@@ -771,7 +763,6 @@ int get_machdep_info_ia64(void);
 #define get_phys_base()		get_phys_base_ia64()
 #define get_versiondep_info()	stub_true()
 #define get_kaslr_offset(X)	stub_false()
-#define paddr_to_vaddr(X)	paddr_to_vaddr_general(X)
 #define VADDR_REGION(X)		(((unsigned long)(X)) >> REGION_SHIFT)
 #define is_phys_addr(X)		stub_true_ul(X)
 #define arch_crashkernel_mem_size()	stub_false()
@@ -784,7 +775,6 @@ int get_phys_base_sparc64(void);
 #define get_machdep_info()      TRUE
 #define get_phys_base()         get_phys_base_sparc64()
 #define get_versiondep_info()   get_versiondep_info_sparc64()
-#define paddr_to_vaddr(X)	paddr_to_vaddr_general(X)
 #define is_phys_addr(X)		stub_true_ul(X)
 #define arch_crashkernel_mem_size()	stub_false()
 #endif		/* sparc64 */
