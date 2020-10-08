@@ -1330,18 +1330,38 @@ error:
 }
 
 static int
-do_open_dump_memory(int *fdp)
+do_open_dump_memory(int *fdp, kdump_ctx_t **ctxp)
 {
 	int fd;
+	kdump_ctx_t *ctx;
 
 	if ((fd = open(info->name_memory, O_RDONLY)) < 0) {
 		ERRMSG("Can't open the dump memory(%s). %s\n",
 		    info->name_memory, strerror(errno));
 		return FALSE;
 	}
+
+	ctx = kdump_new();
+	if (!ctx) {
+		ERRMSG("Can't allocate libkdumpfile context.");
+		goto error;
+	}
+	if (kdump_set_number_attr(ctx, KDUMP_ATTR_FILE_FD, fd) != KDUMP_OK) {
+		ERRMSG("Can't initialize dump memory(%s). %s\n",
+		       info->name_memory, kdump_get_err(ctx));
+		goto error_ctx;
+	}
+
 	*fdp = fd;
+	*ctxp = ctx;
 
 	return TRUE;
+
+ error_ctx:
+	kdump_free(ctx);
+ error:
+	close(fd);
+	return FALSE;
 }
 
 int
@@ -1349,7 +1369,7 @@ open_dump_memory(void)
 {
 	int status;
 
-	if (!do_open_dump_memory(&info->fd_memory))
+	if (!do_open_dump_memory(&info->fd_memory, &info->ctx_memory))
 		return FALSE;
 
 	status = check_kdump_compressed(info->name_memory);
@@ -3845,7 +3865,8 @@ initial_for_parallel()
 	 * initial fd_memory for threads
 	 */
 	for (i = 0; i < info->num_threads; i++) {
-		if (!do_open_dump_memory(&FD_MEMORY_PARALLEL(i)))
+		if (!do_open_dump_memory(&FD_MEMORY_PARALLEL(i),
+					 &CTX_MEMORY_PARALLEL(i)))
 			return FALSE;
 
 		if ((FD_BITMAP_MEMORY_PARALLEL(i) =
@@ -3923,6 +3944,8 @@ free_for_parallel()
 		return;
 
 	for (i = 0; i < info->num_threads; i++) {
+		if (CTX_MEMORY_PARALLEL(i))
+			kdump_free(CTX_MEMORY_PARALLEL(i));
 		if (FD_MEMORY_PARALLEL(i) >= 0)
 			close(FD_MEMORY_PARALLEL(i));
 
@@ -9002,6 +9025,10 @@ close_vmcoreinfo(void)
 void
 close_dump_memory(void)
 {
+	if (info->ctx_memory) {
+		kdump_free(info->ctx_memory);
+		info->ctx_memory = NULL;
+	}
 	if (close(info->fd_memory) < 0)
 		ERRMSG("Can't close the dump memory(%s). %s\n",
 		    info->name_memory, strerror(errno));
@@ -10073,7 +10100,7 @@ int
 reopen_dump_memory()
 {
 	close_dump_memory();
-	return do_open_dump_memory(&info->fd_memory);
+	return do_open_dump_memory(&info->fd_memory, &info->ctx_memory);
 }
 
 int
@@ -11778,6 +11805,8 @@ out:
 				free(info->bitmap_memory->buf);
 			free(info->bitmap_memory);
 		}
+		if (info->ctx_memory)
+			kdump_free(info->ctx_memory);
 		if (info->fd_memory >= 0)
 			close(info->fd_memory);
 		if (info->fd_dumpfile >= 0)
