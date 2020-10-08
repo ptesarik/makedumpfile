@@ -32,7 +32,6 @@ struct size_table	size_table;
 struct offset_table	offset_table;
 struct array_table	array_table;
 struct number_table	number_table;
-struct srcfile_table	srcfile_table;
 struct save_control	sc;
 
 struct vm_table		vt = { 0 };
@@ -1431,12 +1430,6 @@ get_structure_info(void)
 }
 
 int
-get_srcfile_info(void)
-{
-	return TRUE;
-}
-
-int
 get_value_for_old_linux(void)
 {
 	if (NUMBER(PG_lru) == NOT_FOUND_NUMBER)
@@ -1767,9 +1760,6 @@ generate_vmcoreinfo(void)
 	if (!get_structure_info())
 		return FALSE;
 
-	if (!get_srcfile_info())
-		return FALSE;
-
 	if ((SYMBOL(system_utsname) == NOT_FOUND_SYMBOL)
 	    && (SYMBOL(init_uts_ns) == NOT_FOUND_SYMBOL)) {
 		ERRMSG("Can't get the symbol of system_utsname.\n");
@@ -1957,32 +1947,6 @@ read_vmcoreinfo_long(char *str_structure)
 		}
 	}
 	return data;
-}
-
-int
-read_vmcoreinfo_string(char *str_in, char *str_out)
-{
-	char buf[BUFSIZE_FGETS];
-	unsigned int i;
-
-	if (fseek(info->file_vmcoreinfo, 0, SEEK_SET) < 0) {
-		ERRMSG("Can't seek the vmcoreinfo file(%s). %s\n",
-		    info->name_vmcoreinfo, strerror(errno));
-		return FALSE;
-	}
-
-	while (fgets(buf, BUFSIZE_FGETS, info->file_vmcoreinfo)) {
-		i = strlen(buf);
-		if (!i)
-			break;
-		if (buf[i - 1] == '\n')
-			buf[i - 1] = '\0';
-		if (strncmp(buf, str_in, strlen(str_in)) == 0) {
-			strncpy(str_out, buf + strlen(str_in), LEN_SRCFILE - strlen(str_in));
-			break;
-		}
-	}
-	return TRUE;
 }
 
 int
@@ -3499,9 +3463,6 @@ initial(void)
 			return FALSE;
 
 		if (!get_structure_info())
-			return FALSE;
-
-		if (!get_srcfile_info())
 			return FALSE;
 
 		debug_info = TRUE;
