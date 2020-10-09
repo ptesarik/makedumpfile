@@ -8492,47 +8492,6 @@ has_vmcoreinfo_xen(void)
 }
 
 int
-init_xen_crash_info(void)
-{
-	off_t		offset_xen_crash_info;
-	unsigned long	size_xen_crash_info;
-	void		*buf;
-
-	get_xen_crash_info(&offset_xen_crash_info, &size_xen_crash_info);
-	if (!size_xen_crash_info) {
-		return TRUE;		/* missing info is non-fatal */
-	}
-
-	if (size_xen_crash_info < sizeof(xen_crash_info_com_t)) {
-		ERRMSG("Xen crash info too small (%lu bytes).\n",
-		       size_xen_crash_info);
-		return FALSE;
-	}
-
-	buf = malloc(size_xen_crash_info);
-	if (!buf) {
-		ERRMSG("Can't allocate note (%lu bytes). %s\n",
-		       size_xen_crash_info, strerror(errno));
-		return FALSE;
-	}
-
-	if (lseek(info->fd_memory, offset_xen_crash_info, SEEK_SET) < 0) {
-		ERRMSG("Can't seek the dump memory(%s). %s\n",
-		       info->name_memory, strerror(errno));
-		return FALSE;
-	}
-	if (read(info->fd_memory, buf, size_xen_crash_info)
-	    != size_xen_crash_info) {
-		ERRMSG("Can't read the dump memory(%s). %s\n",
-		       info->name_memory, strerror(errno));
-		return FALSE;
-	}
-
-	info->xen_crash_info.com = buf;
-	return TRUE;
-}
-
-int
 get_xen_info(void)
 {
 	unsigned long domain;
@@ -9077,9 +9036,6 @@ initial_xen(void)
 		return FALSE;
 	}
 	if (!set_memory_ostype(info->ctx_memory_xen, "xen"))
-		return FALSE;
-
-	if (!init_xen_crash_info())
 		return FALSE;
 
 	info->xen_major_version = info->xen_minor_version = 0;
