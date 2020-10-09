@@ -880,6 +880,17 @@ open_files_for_creating_dumpfile(void)
 	return TRUE;
 }
 
+static int
+set_memory_ostype(kdump_ctx_t *ctx, const char *type)
+{
+	if (kdump_set_string_attr(ctx, KDUMP_ATTR_OSTYPE, type) != KDUMP_OK) {
+		ERRMSG("Can't initialize as a %s dump: %s\n",
+		       type, kdump_get_err(ctx));
+		return FALSE;
+	}
+	return TRUE;
+}
+
 int
 is_kvaddr(unsigned long long addr)
 {
@@ -3477,6 +3488,9 @@ initial(void)
 			return FALSE;
 		}
 	}
+
+	if (!set_memory_ostype(info->ctx_memory, "linux"))
+		return FALSE;
 
 	/*
 	 * Get the debug information from /proc/vmcore.
@@ -9071,6 +9085,9 @@ initial_xen(void)
 		ERRMSG("Cannot allocate Xen libkdumpfile context");
 		return FALSE;
 	}
+	if (!set_memory_ostype(info->ctx_memory_xen, "xen"))
+		return FALSE;
+
 	if (!init_xen_crash_info())
 		return FALSE;
 	/*
