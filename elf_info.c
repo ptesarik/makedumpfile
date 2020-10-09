@@ -74,8 +74,6 @@ static unsigned long		size_pt_note_memory;
  */
 static off_t			offset_vmcoreinfo;
 static unsigned long		size_vmcoreinfo;
-static off_t			offset_vmcoreinfo_xen;
-static unsigned long		size_vmcoreinfo_xen;
 
 /*
  * erased information in /proc/vmcore:
@@ -319,16 +317,6 @@ get_pt_note_info(void)
 				    VMCOREINFO_NOTE_NAME_BYTES)) {
 			if (n_type == 0) {
 				set_vmcoreinfo(offset_desc, size_desc);
-			}
-		/*
-		 * Check whether /proc/vmcore contains vmcoreinfo,
-		 * and get both the offset and the size.
-		 */
-		} else if (!strncmp(VMCOREINFO_XEN_NOTE_NAME, buf,
-				    VMCOREINFO_XEN_NOTE_NAME_BYTES)) {
-			if (n_type == 0) {
-				offset_vmcoreinfo_xen = offset_desc;
-				size_vmcoreinfo_xen   = size_desc;
 			}
 		/*
 		 * Check whether /proc/vmcore contains xen's note.
