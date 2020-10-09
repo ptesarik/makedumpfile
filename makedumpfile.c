@@ -10603,9 +10603,6 @@ int is_crashkernel_mem_reserved(void)
 
 static int get_page_offset(void)
 {
-	if (!populate_kernel_version())
-		return FALSE;
-
 	get_versiondep_info();
 
 	return TRUE;
