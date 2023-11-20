@@ -139,6 +139,38 @@ initialize_tables(void)
 	INITIALIZE_LONG_TABLE(number_table, NOT_FOUND_NUMBER);
 }
 
+unsigned long
+paddr_to_vaddr(unsigned long long paddr)
+{
+	addrxlat_fulladdr_t faddr;
+	addrxlat_ctx_t *xlatctx;
+	addrxlat_sys_t *xlatsys;
+	addrxlat_status xlaterr;
+	kdump_status status;
+
+	status = kdump_get_addrxlat(info->ctx_memory, &xlatctx, &xlatsys);
+	if (status != KDUMP_OK) {
+		ERRMSG("Can't get address translation: %s.\n",
+		       kdump_get_err(info->ctx_memory));
+		return NOT_PADDR;
+	}
+
+	faddr.addr = paddr;
+	faddr.as = ADDRXLAT_KPHYSADDR;
+	xlaterr = addrxlat_fulladdr_conv(&faddr, ADDRXLAT_KVADDR,
+					 xlatctx, xlatsys);
+	if (xlaterr != ADDRXLAT_OK) {
+		ERRMSG("Can't convert a physical address (0x%llx) to virtual address: %s.\n",
+		       paddr, addrxlat_ctx_get_err(xlatctx));
+		faddr.addr = NOT_PADDR;
+	}
+
+	addrxlat_sys_decref(xlatsys);
+	addrxlat_ctx_decref(xlatctx);
+
+	return faddr.addr;
+}
+
 /*
  * Translate a virtual address to a physical address using a specific
  * kdump context.
