@@ -31,12 +31,8 @@ int get_elf64_phdr(int fd, char *filename, int index, Elf64_Phdr *phdr);
 int get_elf32_phdr(int fd, char *filename, int index, Elf32_Phdr *phdr);
 
 off_t paddr_to_offset(unsigned long long paddr);
-off_t offset_to_pt_load_end(off_t offset);
 off_t vaddr_to_offset_slow(int fd, char *filename, unsigned long long vaddr);
 unsigned long long get_max_paddr(void);
-int closest_pt_load(unsigned long long paddr, unsigned long distance);
-
-int page_is_fractional(off_t page_offset);
 
 int get_elf64_ehdr(int fd, char *filename, Elf64_Ehdr *ehdr);
 int get_elf32_ehdr(int fd, char *filename, Elf32_Ehdr *ehdr);
