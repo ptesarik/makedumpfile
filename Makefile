@@ -83,7 +83,7 @@ CFLAGS += -fsanitize=undefined
 endif
 
 LIBS := $(LIBS) -lpthread
-LIBS := $(LIBS) -lkdumpfile
+LIBS := $(LIBS) -lkdumpfile -laddrxlat
 
 try-run = $(shell set -e;		\
 	TMP=".$$$$.tmp";		\
