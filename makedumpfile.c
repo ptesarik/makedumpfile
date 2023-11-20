@@ -11153,13 +11153,6 @@ int is_crashkernel_mem_reserved(void)
 	return !!crash_reserved_mem_nr;
 }
 
-static int get_page_offset(void)
-{
-	get_versiondep_info();
-
-	return TRUE;
-}
-
 int show_mem_usage(void)
 {
 	struct cycle cycle = {0};
@@ -11175,13 +11168,6 @@ int show_mem_usage(void)
 		return FALSE;
 
 	if (!get_elf_info(info->fd_memory, info->name_memory))
-		return FALSE;
-
-	if (!get_page_offset())
-		return FALSE;
-
-	/* paddr_to_vaddr() on arm64 needs phys_base. */
-	if (!get_phys_base())
 		return FALSE;
 
 	if (!initial())
