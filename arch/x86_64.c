@@ -46,28 +46,11 @@ check_5level_paging(void)
 unsigned long
 get_kaslr_offset_x86_64(unsigned long vaddr)
 {
-	unsigned int i;
-	char buf[BUFSIZE_FGETS], *endp;
 	unsigned long kernel_image_size;
 
 	if (!info->kaslr_offset && info->file_vmcoreinfo) {
-		if (fseek(info->file_vmcoreinfo, 0, SEEK_SET) < 0) {
-			ERRMSG("Can't seek the vmcoreinfo file(%s). %s\n",
-					info->name_vmcoreinfo, strerror(errno));
-			return FALSE;
-		}
-
-		while (fgets(buf, BUFSIZE_FGETS, info->file_vmcoreinfo)) {
-			i = strlen(buf);
-			if (!i)
-				break;
-			if (buf[i - 1] == '\n')
-				buf[i - 1] = '\0';
-			if (strncmp(buf, STR_KERNELOFFSET,
-					strlen(STR_KERNELOFFSET)) == 0)
-				info->kaslr_offset =
-					strtoul(buf+strlen(STR_KERNELOFFSET),&endp,16);
-		}
+		if (!init_kaslr_offset())
+			return 0;
 	}
 	if (!info->kaslr_offset || !vaddr)
 		return 0;

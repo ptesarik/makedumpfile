@@ -3549,35 +3549,45 @@ free_for_parallel()
 	}
 }
 
-unsigned long
-get_kaslr_offset_general(unsigned long vaddr)
+int
+init_kaslr_offset(void)
 {
 	unsigned int i;
 	char buf[BUFSIZE_FGETS], *endp;
+
+	if (fseek(info->file_vmcoreinfo, 0, SEEK_SET) < 0) {
+		ERRMSG("Can't seek the vmcoreinfo file(%s). %s\n",
+			info->name_vmcoreinfo, strerror(errno));
+		return FALSE;
+	}
+
+	while (fgets(buf, BUFSIZE_FGETS, info->file_vmcoreinfo)) {
+		i = strlen(buf);
+		if (!i)
+			break;
+		if (buf[i - 1] == '\n')
+			buf[i - 1] = '\0';
+		if (strncmp(buf, STR_KERNELOFFSET,
+				strlen(STR_KERNELOFFSET)) == 0) {
+			info->kaslr_offset = strtoul(buf +
+				strlen(STR_KERNELOFFSET), &endp, 16);
+			DEBUG_MSG("info->kaslr_offset: %lx\n",
+				info->kaslr_offset);
+		}
+	}
+
+	return TRUE;
+}
+
+unsigned long
+get_kaslr_offset_general(unsigned long vaddr)
+{
 	static unsigned long _text = NOT_FOUND_SYMBOL;
 	static unsigned long _end = NOT_FOUND_SYMBOL;
 
 	if (!info->kaslr_offset && info->file_vmcoreinfo) {
-		if (fseek(info->file_vmcoreinfo, 0, SEEK_SET) < 0) {
-			ERRMSG("Can't seek the vmcoreinfo file(%s). %s\n",
-				info->name_vmcoreinfo, strerror(errno));
-			return FALSE;
-		}
-
-		while (fgets(buf, BUFSIZE_FGETS, info->file_vmcoreinfo)) {
-			i = strlen(buf);
-			if (!i)
-				break;
-			if (buf[i - 1] == '\n')
-				buf[i - 1] = '\0';
-			if (strncmp(buf, STR_KERNELOFFSET,
-					strlen(STR_KERNELOFFSET)) == 0) {
-				info->kaslr_offset = strtoul(buf +
-					strlen(STR_KERNELOFFSET), &endp, 16);
-				DEBUG_MSG("info->kaslr_offset: %lx\n",
-					info->kaslr_offset);
-			}
-		}
+		if (!init_kaslr_offset())
+			return 0;
 	}
 	if (!info->kaslr_offset || !vaddr)
 		return 0;

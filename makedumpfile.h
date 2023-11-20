@@ -816,6 +816,7 @@ typedef ulong pte_t;
 static inline int stub_true() { return TRUE; }
 static inline int stub_true_ul(unsigned long x) { return TRUE; }
 static inline int stub_false() { return FALSE; }
+int init_kaslr_offset(void);
 unsigned long get_kaslr_offset_general(unsigned long vaddr);
 #define paddr_to_vaddr_general(X) ((X) + PAGE_OFFSET)
 
