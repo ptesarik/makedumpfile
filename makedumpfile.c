@@ -48,10 +48,6 @@ extern int find_vmemmap();
 
 char filename_stdout[] = FILENAME_STDOUT;
 
-/* Cache statistics */
-static unsigned long long	cache_hit;
-static unsigned long long	cache_miss;
-
 static unsigned long long	write_bytes;
 
 static void first_cycle(mdf_pfn_t start, mdf_pfn_t max, struct cycle *cycle)
@@ -10443,6 +10439,43 @@ print_vtop(void)
 	return;
 }
 
+static int
+print_cache_report(const char *name, const char *attr_dir)
+{
+	size_t len = strlen(attr_dir);
+	char attr_hits[len + sizeof(".hits")];
+	char attr_misses[len + sizeof(".misses")];
+	kdump_attr_t hits, misses;
+	kdump_num_t total;
+	kdump_status status;
+
+	sprintf(attr_hits, "%s.%s", attr_dir, "hits");
+	status = kdump_get_attr(info->ctx_memory, attr_hits, &hits);
+	if (status != KDUMP_OK)
+		goto err;
+
+	sprintf(attr_misses, "%s.%s", attr_dir, "misses");
+	status = kdump_get_attr(info->ctx_memory, attr_misses, &misses);
+	if (status != KDUMP_OK)
+		goto err;
+
+	REPORT_MSG("%s cache hit: %"KDUMP_PRIuNUM", miss: %"KDUMP_PRIuNUM,
+	    name, hits.val.number, misses.val.number);
+
+	total = hits.val.number + misses.val.number;
+	if (total)
+		REPORT_MSG(", hit rate: %.1f%%",
+		    100.0 * hits.val.number / total);
+
+	REPORT_MSG("\n");
+	return TRUE;
+
+err:
+	ERRMSG("Cannot get cache statistics: %s\n",
+	    kdump_get_err(info->ctx_memory));
+	return FALSE;
+}
+
 void
 print_report(void)
 {
@@ -10491,11 +10524,12 @@ print_report(void)
 	REPORT_MSG("Total pages     : 0x%016llx\n", info->max_mapnr);
 	REPORT_MSG("Write bytes     : %llu\n", write_bytes);
 	REPORT_MSG("\n");
-	REPORT_MSG("Cache hit: %lld, miss: %lld", cache_hit, cache_miss);
-	if (cache_hit + cache_miss)
-		REPORT_MSG(", hit rate: %.1f%%",
-		    100.0 * cache_hit / (cache_hit + cache_miss));
-	REPORT_MSG("\n\n");
+
+	print_cache_report("Page", "cache");
+	print_cache_report("Mmap", "file.mmap_cache");
+	print_cache_report("Read", "file.read_cache");
+
+	REPORT_MSG("\n");
 }
 
 static void
