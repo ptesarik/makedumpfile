@@ -476,31 +476,6 @@ paddr_to_offset(unsigned long long paddr)
 }
 
 /*
- * Same as paddr_to_offset() but makes sure that the specified offset (hint)
- * in the segment.
- */
-off_t
-paddr_to_offset2(unsigned long long paddr, off_t hint)
-{
-	int i;
-	off_t offset;
-	struct pt_load_segment *pls;
-
-	for (i = offset = 0; i < num_pt_loads; i++) {
-		pls = &pt_loads[i];
-		if ((paddr >= pls->phys_start)
-		    && (paddr < pls->phys_start + pls->file_size)
-		    && (hint >= pls->file_offset)
-		    && (hint < pls->file_offset + pls->file_size)) {
-			offset = (off_t)(paddr - pls->phys_start) +
-				pls->file_offset;
-			break;
-		}
-	}
-	return offset;
-}
-
-/*
  *  Calculate a end File Offset of PT_LOAD from a File Offset
  *  of a page. If this function returns 0x0, the input page is
  *  not in the memory image.
