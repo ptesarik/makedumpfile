@@ -1415,7 +1415,7 @@ error:
 }
 
 int
-open_dump_memory(void)
+open_dump_memory(int *fdp)
 {
 	int fd;
 
@@ -1424,7 +1424,7 @@ open_dump_memory(void)
 		    info->name_memory, strerror(errno));
 		return FALSE;
 	}
-	info->fd_memory = fd;
+	*fdp = fd;
 	return TRUE;
 }
 
@@ -1593,7 +1593,7 @@ open_files_for_creating_dumpfile(void)
 		if (!open_kernel_file())
 			return FALSE;
 	}
-	if (!open_dump_memory())
+	if (!open_dump_memory(&info->fd_memory))
 		return FALSE;
 
 	status = check_kdump_compressed(info->name_memory);
@@ -4155,12 +4155,8 @@ initial_for_parallel()
 	 * initial fd_memory for threads
 	 */
 	for (i = 0; i < info->num_threads; i++) {
-		if ((FD_MEMORY_PARALLEL(i) = open(info->name_memory, O_RDONLY))
-									< 0) {
-			ERRMSG("Can't open the dump memory(%s). %s\n",
-					info->name_memory, strerror(errno));
+		if (!open_dump_memory(&FD_MEMORY_PARALLEL(i)))
 			return FALSE;
-		}
 
 		if ((FD_BITMAP_MEMORY_PARALLEL(i) =
 				open(info->name_memory, O_RDONLY)) < 0) {
@@ -10657,13 +10653,7 @@ int
 reopen_dump_memory()
 {
 	close_dump_memory();
-
-	if ((info->fd_memory = open(info->name_memory, O_RDONLY)) < 0) {
-		ERRMSG("Can't open the dump memory(%s). %s\n",
-		    info->name_memory, strerror(errno));
-		return FALSE;
-	}
-	return TRUE;
+	return open_dump_memory(&info->fd_memory);
 }
 
 int
