@@ -50,6 +50,8 @@
 #include <semaphore.h>
 #include <inttypes.h>
 
+#include <libkdumpfile/kdumpfile.h>
+
 #define VMEMMAPSTART 0xffffea0000000000UL
 #define BITS_PER_WORD 64
 
@@ -472,6 +474,7 @@ do { \
  * Macro for getting parallel info.
  */
 #define FD_MEMORY_PARALLEL(i)		info->parallel_info[i].fd_memory
+#define CTX_MEMORY_PARALLEL(i)		info->parallel_info[i].ctx_memory
 #define FD_BITMAP_MEMORY_PARALLEL(i)	info->parallel_info[i].fd_bitmap_memory
 #define FD_BITMAP_PARALLEL(i)		info->parallel_info[i].fd_bitmap
 #define BUF_PARALLEL(i)			info->parallel_info[i].buf
@@ -1479,6 +1482,7 @@ struct splitting_info {
 
 struct parallel_info {
 	int			fd_memory;
+	kdump_ctx_t		*ctx_memory;
 	int 			fd_bitmap_memory;
 	int			fd_bitmap;
 	unsigned char		*buf;
@@ -1641,6 +1645,7 @@ struct DumpInfo {
 	struct kdump_sub_header	*kh_memory;
 	struct dump_bitmap 		*bitmap_memory;
 	unsigned long			*valid_pages;
+	kdump_ctx_t		*ctx_memory;
 
 	/*
 	 * Dump file info:

@@ -83,6 +83,7 @@ CFLAGS += -fsanitize=undefined
 endif
 
 LIBS := $(LIBS) -lpthread
+LIBS := $(LIBS) -lkdumpfile
 
 try-run = $(shell set -e;		\
 	TMP=".$$$$.tmp";		\
