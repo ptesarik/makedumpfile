@@ -56,7 +56,6 @@ set_s390x_max_physmem_bits(void)
 int
 get_machdep_info_s390x(void)
 {
-	unsigned long vmalloc_start;
 	char *term_str = getenv("TERM");
 
 	if (term_str && strcmp(term_str, "dumb") == 0)
@@ -76,20 +75,6 @@ get_machdep_info_s390x(void)
 	}
 	info->kernel_start = SYMBOL(_stext);
 	DEBUG_MSG("kernel_start : %lx\n", info->kernel_start);
-
-	/*
-	 * Obtain the vmalloc_start address from high_memory symbol.
-	 */
-	if (SYMBOL(high_memory) == NOT_FOUND_SYMBOL) {
-		return TRUE;
-	}
-	if (!readmem(VADDR, SYMBOL(high_memory), &vmalloc_start,
-			sizeof(vmalloc_start))) {
-		ERRMSG("Can't get vmalloc_start.\n");
-		return FALSE;
-	}
-	info->vmalloc_start = vmalloc_start;
-	DEBUG_MSG("vmalloc_start: %lx\n", vmalloc_start);
 
 	return TRUE;
 }

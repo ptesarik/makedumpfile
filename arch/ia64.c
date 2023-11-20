@@ -45,17 +45,12 @@ int
 get_machdep_info_ia64(void)
 {
 	/*
-	 * Get kernel_start and vmalloc_start.
+	 * Get kernel_start.
 	 */
 	if (SYMBOL(_stext) == NOT_FOUND_SYMBOL)
 		return FALSE;
 
 	info->kernel_start = SYMBOL(_stext);
-
-	if (VADDR_REGION(info->kernel_start) == KERNEL_VMALLOC_REGION)
-		info->vmalloc_start = info->kernel_start + 4*1024UL*1024UL*1024UL;
-	else
-		info->vmalloc_start = KERNEL_VMALLOC_BASE;
 
 	info->section_size_bits = _SECTION_SIZE_BITS;
 

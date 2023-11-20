@@ -1002,7 +1002,6 @@ get_symbol_info(void)
 	SYMBOL_INIT(log_next_idx, "log_next_idx");
 	SYMBOL_INIT(max_pfn, "max_pfn");
 	SYMBOL_INIT(modules, "modules");
-	SYMBOL_INIT(high_memory, "high_memory");
 	SYMBOL_INIT(linux_banner, "linux_banner");
 	SYMBOL_INIT(bios_cpu_apicid, "bios_cpu_apicid");
 	SYMBOL_INIT(x86_bios_cpu_apicid, "x86_bios_cpu_apicid");
@@ -1703,7 +1702,6 @@ write_vmcoreinfo_data(void)
 	WRITE_SYMBOL("clear_idx", clear_idx);
 	WRITE_SYMBOL("log_next_idx", log_next_idx);
 	WRITE_SYMBOL("max_pfn", max_pfn);
-	WRITE_SYMBOL("high_memory", high_memory);
 	WRITE_SYMBOL("node_remap_start_vaddr", node_remap_start_vaddr);
 	WRITE_SYMBOL("node_remap_end_vaddr", node_remap_end_vaddr);
 	WRITE_SYMBOL("node_remap_start_pfn", node_remap_start_pfn);
@@ -2117,7 +2115,6 @@ read_vmcoreinfo(void)
 	READ_SYMBOL("clear_idx", clear_idx);
 	READ_SYMBOL("log_next_idx", log_next_idx);
 	READ_SYMBOL("max_pfn", max_pfn);
-	READ_SYMBOL("high_memory", high_memory);
 	READ_SYMBOL("node_remap_start_vaddr", node_remap_start_vaddr);
 	READ_SYMBOL("node_remap_end_vaddr", node_remap_end_vaddr);
 	READ_SYMBOL("node_remap_start_pfn", node_remap_start_pfn);

@@ -497,8 +497,6 @@ do { \
  * The value of dependence on machine
  */
 #define PAGE_OFFSET		(info->page_offset)
-#define VMALLOC_START		(info->vmalloc_start)
-#define VMALLOC_END		(info->vmalloc_end)
 #define VMEMMAP_START		(info->vmemmap_start)
 #define VMEMMAP_END		(info->vmemmap_end)
 #define PMASK			(0x7ffffffffffff000UL)
@@ -537,13 +535,6 @@ unsigned long get_kvbase_arm64(void);
 #define __PAGE_OFFSET_2_6_27	(0xffff880000000000) /* 2.6.27, or later  */
 #define __PAGE_OFFSET_5LEVEL	(0xff10000000000000) /* 5-level page table */
 
-#define VMALLOC_START_ORIG	(0xffffc20000000000) /* 2.6.30, or former */
-#define VMALLOC_START_2_6_31	(0xffffc90000000000) /* 2.6.31, or later  */
-#define VMALLOC_START_5LEVEL	(0xffa0000000000000) /* 5-level page table */
-#define VMALLOC_END_ORIG	(0xffffe1ffffffffff) /* 2.6.30, or former */
-#define VMALLOC_END_2_6_31	(0xffffe8ffffffffff) /* 2.6.31, or later  */
-#define VMALLOC_END_5LEVEL	(0xffd1ffffffffffff) /* 5-level page table */
-
 #define VMEMMAP_START_ORIG	(0xffffe20000000000) /* 2.6.30, or former */
 #define VMEMMAP_START_2_6_31	(0xffffea0000000000) /* 2.6.31, or later  */
 #define VMEMMAP_START_5LEVEL	(0xffd4000000000000) /* 5-level page table */
@@ -579,7 +570,6 @@ unsigned long get_kvbase_arm64(void);
 #ifdef __powerpc64__
 #define __PAGE_OFFSET		(0xc000000000000000)
 #define KERNELBASE		PAGE_OFFSET
-#define VMALLOCBASE     	(0xD000000000000000)
 #define KVBASE			(SYMBOL(_stext))
 #define _SECTION_SIZE_BITS	(24)
 #define _MAX_PHYSMEM_BITS_ORIG  (44)
@@ -654,7 +644,6 @@ unsigned long get_kvbase_arm64(void);
 #define _SECTION_SIZE_BITS	(30)
 #define _MAX_PHYSMEM_BITS_L3	(49)
 #define _MAX_PHYSMEM_BITS_L4	(53)
-#define VMALLOC_START_SPARC64	(0x0000000100000000UL)
 #define VMEMMAP_BASE_SPARC64	(0x0000010000000000UL)
 #define VMEMMAP_CHUNK_SHIFT	(22)
 #define VMEMMAP_CHUNK		(1UL << VMEMMAP_CHUNK_SHIFT)
@@ -1233,8 +1222,6 @@ struct DumpInfo {
 	unsigned long   sections_per_root;
 	unsigned long	phys_base;
 	unsigned long   kernel_start;
-	unsigned long   vmalloc_start;
-	unsigned long   vmalloc_end;
 	unsigned long	vmemmap_start;
 	unsigned long	vmemmap_end;
 	int		vmemmap_psize;
@@ -1529,11 +1516,6 @@ struct symbol_table {
 	 */
 
 	unsigned long long	modules;
-
-	/*
-	 * vmalloc_start address on s390x arch
-	 */
-	unsigned long long	high_memory;
 
 	/*
 	 * for sadump

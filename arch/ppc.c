@@ -28,8 +28,6 @@
 int
 get_machdep_info_ppc(void)
 {
-	unsigned long vmlist, vmap_area_list, vmalloc_start;
-
 	info->section_size_bits = _SECTION_SIZE_BITS;
 
 	/* Check if we can get MAX_PHYSMEM_BITS from vmcoreinfo */
@@ -48,44 +46,6 @@ get_machdep_info_ppc(void)
 	}
 		
 	DEBUG_MSG("kernel_start : %lx\n", info->kernel_start);
-
-	/*
-	 * Get vmalloc_start value from either vmap_area_list or vmlist.
-	 */
-	if ((SYMBOL(vmap_area_list) != NOT_FOUND_SYMBOL)
-	    && (OFFSET(vmap_area.va_start) != NOT_FOUND_STRUCTURE)
-	    && (OFFSET(vmap_area.list) != NOT_FOUND_STRUCTURE)) {
-		if (!readmem(VADDR, SYMBOL(vmap_area_list) + OFFSET(list_head.next),
-			     &vmap_area_list, sizeof(vmap_area_list))) {
-			ERRMSG("Can't get vmap_area_list.\n");
-			return FALSE;
-		}
-		if (!readmem(VADDR, vmap_area_list - OFFSET(vmap_area.list) +
-			     OFFSET(vmap_area.va_start), &vmalloc_start,
-			     sizeof(vmalloc_start))) {
-			ERRMSG("Can't get vmalloc_start.\n");
-			return FALSE;
-		}
-	} else if ((SYMBOL(vmlist) != NOT_FOUND_SYMBOL)
-		   && (OFFSET(vm_struct.addr) != NOT_FOUND_STRUCTURE)) {
-		if (!readmem(VADDR, SYMBOL(vmlist), &vmlist, sizeof(vmlist))) {
-			ERRMSG("Can't get vmlist.\n");
-			return FALSE;
-		}
-		if (!readmem(VADDR, vmlist + OFFSET(vm_struct.addr), &vmalloc_start,
-			     sizeof(vmalloc_start))) {
-			ERRMSG("Can't get vmalloc_start.\n");
-			return FALSE;
-		}
-	} else {
-		/*
-		 * For the compatibility, makedumpfile should run without the symbol
-		 * vmlist and the offset of vm_struct.addr if they are not necessary.
-		 */
-		return TRUE;
-	}
-	info->vmalloc_start = vmalloc_start;
-	DEBUG_MSG("vmalloc_start: %lx\n", vmalloc_start);
 
 	return TRUE;
 }
