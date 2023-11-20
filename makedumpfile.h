@@ -1635,6 +1635,7 @@ struct DumpInfo {
 	struct dump_bitmap 		*bitmap_memory;
 	unsigned long			*valid_pages;
 	kdump_ctx_t		*ctx_memory;
+	kdump_ctx_t		*ctx_memory_xen;
 
 	/*
 	 * Dump file info:

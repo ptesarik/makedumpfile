@@ -8837,6 +8837,10 @@ close_dump_memory(void)
 		kdump_free(info->ctx_memory);
 		info->ctx_memory = NULL;
 	}
+	if (info->ctx_memory_xen) {
+		kdump_free(info->ctx_memory_xen);
+		info->ctx_memory_xen = NULL;
+	}
 	if (close(info->fd_memory) < 0)
 		ERRMSG("Can't close the dump memory(%s). %s\n",
 		    info->name_memory, strerror(errno));
@@ -9589,6 +9593,11 @@ initial_xen(void)
 		}
 	}
 
+	info->ctx_memory_xen = kdump_clone(info->ctx_memory, KDUMP_CLONE_XLAT);
+	if (!info->ctx_memory_xen) {
+		ERRMSG("Cannot allocate Xen libkdumpfile context");
+		return FALSE;
+	}
 	if (!init_xen_crash_info())
 		return FALSE;
 	/*
