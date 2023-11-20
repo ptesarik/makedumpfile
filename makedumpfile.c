@@ -1052,9 +1052,6 @@ readmem(int type_addr, unsigned long long addr, void *bufptr, size_t size)
 {
 	size_t read_size, size_orig = size;
 	unsigned long long paddr;
-	unsigned long long pgaddr;
-	void *pgbuf;
-	struct cache_entry *cached;
 
 next_page:
 	switch (type_addr) {
@@ -1086,43 +1083,13 @@ next_page:
 	 */
 	read_size = MIN(info->page_size - PAGEOFFSET(paddr), size);
 
-	pgaddr = PAGEBASE(paddr);
 	if (NUMBER(sme_mask) != NOT_FOUND_NUMBER)
-		pgaddr = pgaddr & ~(NUMBER(sme_mask));
-	pgbuf = cache_search(pgaddr, read_size);
-	if (!pgbuf) {
-		++cache_miss;
-		cached = cache_alloc(pgaddr);
-		if (!cached)
-			goto error;
-		pgbuf = cached->bufptr;
+		paddr = paddr & ~(NUMBER(sme_mask));
 
-		if (info->flag_refiltering) {
-			if (!readpage_kdump_compressed(pgaddr, pgbuf))
-				goto error_cached;
-		} else if (info->flag_sadump) {
-			if (!readpage_sadump(pgaddr, pgbuf))
-				goto error_cached;
-		} else {
-			char *mapbuf = mappage_elf(pgaddr);
-			size_t mapoff;
-
-			if (mapbuf) {
-				pgbuf = mapbuf;
-				mapoff = mapbuf - info->mmap_buf;
-				cached->paddr = pgaddr - mapoff;
-				cached->bufptr = info->mmap_buf;
-				cached->buflen = info->mmap_end_offset -
-					info->mmap_start_offset;
-				cached->discard = unmap_cache;
-			} else if (!readpage_elf(pgaddr, pgbuf))
-				goto error_cached;
-		}
-		cache_add(cached);
-	} else
-		++cache_hit;
-
-	memcpy(bufptr, pgbuf + PAGEOFFSET(paddr), read_size);
+	if (kdump_read(info->ctx_memory, KDUMP_MACHPHYSADDR, paddr, bufptr, &read_size) != KDUMP_OK) {
+		ERRMSG("%s\n", kdump_get_err(info->ctx_memory));
+		goto error;
+	}
 
 	addr += read_size;
 	bufptr += read_size;
@@ -1133,8 +1100,6 @@ next_page:
 
 	return size_orig;
 
-error_cached:
-	cache_free(cached);
 error:
 	ERRMSG("type_addr: %d, addr:%llx, size:%zd\n", type_addr, addr, size_orig);
 	return FALSE;
@@ -8010,21 +7975,9 @@ write_elf_load_segment(struct cache_data *cd_page, unsigned long long paddr,
 		       off_t off_memory, long long size)
 {
 	long page_size = info->page_size;
-	long long bufsz_write;
+	size_t bufsz_write;
 	int ret = FALSE;
 	char *buf;
-
-	off_memory = paddr_to_offset2(paddr, off_memory);
-	if (!off_memory) {
-		ERRMSG("Can't convert physaddr(%llx) to an offset.\n",
-		    paddr);
-		return FALSE;
-	}
-	if (lseek(info->fd_memory, off_memory, SEEK_SET) < 0) {
-		ERRMSG("Can't seek the dump memory(%s). %s\n",
-		    info->name_memory, strerror(errno));
-		return FALSE;
-	}
 
 	buf = malloc(page_size);
 	if (!buf) {
@@ -8038,9 +7991,10 @@ write_elf_load_segment(struct cache_data *cd_page, unsigned long long paddr,
 		else
 			bufsz_write = size;
 
-		if (read(info->fd_memory, buf, bufsz_write) != bufsz_write) {
+		if (kdump_read(info->ctx_memory, KDUMP_MACHPHYSADDR,
+			       paddr, buf, &bufsz_write) != KDUMP_OK) {
 			ERRMSG("Can't read the dump memory(%s). %s\n",
-			    info->name_memory, strerror(errno));
+			    info->name_memory, kdump_get_err(info->ctx_memory));
 			goto out_error;
 		}
 		filter_data_buffer((unsigned char *)buf, paddr, bufsz_write);
@@ -8536,12 +8490,11 @@ kdump_thread_function_cyclic(void *arg) {
 	int index = kdump_thread_args->thread_num;
 	int buf_ready;
 	int dumpable;
-	int fd_memory = 0;
+	kdump_ctx_t *ctx_memory;
+	size_t page_size;
 	struct dump_bitmap bitmap_parallel = {0};
 	struct dump_bitmap bitmap_memory_parallel = {0};
 	unsigned char *buf = NULL, *buf_out = NULL;
-	struct mmap_cache *mmap_cache =
-			MMAP_CACHE_PARALLEL(kdump_thread_args->thread_num);
 	unsigned long size_out;
 	z_stream *stream = &ZLIB_STREAM_PARALLEL(kdump_thread_args->thread_num);
 #ifdef USELZO
@@ -8554,7 +8507,8 @@ kdump_thread_function_cyclic(void *arg) {
 	buf = BUF_PARALLEL(kdump_thread_args->thread_num);
 	buf_out = BUF_OUT_PARALLEL(kdump_thread_args->thread_num);
 
-	fd_memory = FD_MEMORY_PARALLEL(kdump_thread_args->thread_num);
+	ctx_memory = CTX_MEMORY_PARALLEL(kdump_thread_args->thread_num);
+	page_size = PAGESIZE();
 
 	if (info->fd_bitmap >= 0) {
 		bitmap_parallel.buf = malloc(BUFSIZE_BITMAP);
@@ -8623,10 +8577,10 @@ kdump_thread_function_cyclic(void *arg) {
 				break;
 			}
 
-			if (!read_pfn_parallel(fd_memory, pfn, buf,
-					       &bitmap_memory_parallel,
-					       mmap_cache))
-					goto fail;
+			if (kdump_read(ctx_memory,
+				       KDUMP_MACHPHYSADDR, pfn_to_paddr(pfn),
+				       buf, &page_size) != KDUMP_OK)
+				goto fail;
 
 			filter_data_buffer_parallel(buf, pfn_to_paddr(pfn),
 							info->page_size,
