@@ -70,7 +70,6 @@ int has_vmcoreinfo(void);
 void set_vmcoreinfo(off_t offset, unsigned long size);
 void get_vmcoreinfo(off_t *offset, unsigned long *size);
 
-int has_vmcoreinfo_xen(void);
 void get_xen_crash_info(off_t *offset, unsigned long *size);
 
 int has_eraseinfo(void);

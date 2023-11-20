@@ -8938,6 +8938,16 @@ get_structure_info_xen(void)
 	return TRUE;
 }
 
+static int
+has_vmcoreinfo_xen(void)
+{
+	kdump_attr_t attr;
+	kdump_status status;
+
+	status = kdump_get_attr(info->ctx_memory_xen, "xen.vmcoreinfo", &attr);
+	return status == KDUMP_OK;
+}
+
 int
 init_xen_crash_info(void)
 {
