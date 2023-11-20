@@ -571,6 +571,16 @@ check_release(void)
 	return TRUE;
 }
 
+static int
+has_linux_vmcoreinfo(void)
+{
+	kdump_attr_t attr;
+	kdump_status status;
+
+	status = kdump_get_attr(info->ctx_memory, "linux.vmcoreinfo", &attr);
+	return status == KDUMP_OK;
+}
+
 int
 open_vmcoreinfo(char *mode)
 {
@@ -3666,7 +3676,7 @@ initial(void)
 	 * Get the debug information for analysis from the vmcoreinfo file
 	 */
 	if (info->flag_read_vmcoreinfo) {
-		if (has_vmcoreinfo() && !find_kaslr_offsets())
+		if (has_linux_vmcoreinfo() && !find_kaslr_offsets())
 			return FALSE;
 
 		if (!use_file_vmcoreinfo("linux.vmcoreinfo.raw"))
@@ -3689,7 +3699,7 @@ initial(void)
 		set_dwarf_debuginfo("vmlinux", NULL,
 					info->name_vmlinux, info->fd_vmlinux);
 
-		if (has_vmcoreinfo() && !find_kaslr_offsets())
+		if (has_linux_vmcoreinfo() && !find_kaslr_offsets())
 			return FALSE;
 
 		if (!get_symbol_info())
@@ -3704,7 +3714,7 @@ initial(void)
 		 * Check whether /proc/vmcore contains vmcoreinfo,
 		 * and get both the offset and the size.
 		 */
-		if (!has_vmcoreinfo()) {
+		if (!has_linux_vmcoreinfo()) {
 			if (info->max_dump_level <= DL_EXCLUDE_ZERO)
 				goto out;
 
@@ -3727,7 +3737,7 @@ initial(void)
 	 *       in /proc/vmcore. vmcoreinfo in /proc/vmcore is more reliable
 	 *       than -x/-i option.
 	 */
-	if (has_vmcoreinfo()) {
+	if (has_linux_vmcoreinfo()) {
 		if (!read_vmcoreinfo())
 			return FALSE;
 		debug_info = TRUE;
