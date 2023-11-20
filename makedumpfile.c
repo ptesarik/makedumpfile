@@ -1440,6 +1440,21 @@ open_dump_memory(int *fdp, kdump_ctx_t **ctxp)
 		goto error_ctx;
 	}
 
+	if (kdump_set_number_attr(ctx, KDUMP_ATTR_FILE_SET ".number", 1)
+	    != KDUMP_OK) {
+		ERRMSG("Can't initialize dump memory(%s). %s\n",
+		       info->name_memory, kdump_get_err(ctx));
+		goto error_ctx;
+	}
+	kdump_set_string_attr(ctx, KDUMP_ATTR_FILE_SET ".0.name",
+			      info->name_memory);
+	if (kdump_set_number_attr(ctx, KDUMP_ATTR_FILE_SET ".0.fd", fd)
+	    != KDUMP_OK) {
+		ERRMSG("Can't initialize dump memory(%s). %s\n",
+		       info->name_memory, kdump_get_err(ctx));
+		goto error_ctx;
+	}
+
 	*fdp = fd;
 	*ctxp = ctx;
 	return TRUE;
