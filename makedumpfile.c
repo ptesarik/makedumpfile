@@ -1432,14 +1432,7 @@ open_dump_memory(void)
 		return get_kdump_compressed_header_info(info->name_memory);
 	}
 
-	status = check_and_get_sadump_header_info(info->name_memory);
-	if (status == TRUE)
-		return TRUE;
-
-	if (status == ERROR)
-		return TRUE;
-
-	return FALSE;
+	return check_and_get_sadump_header_info(info->name_memory);
 }
 
 int
