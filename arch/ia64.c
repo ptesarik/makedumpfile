@@ -70,8 +70,7 @@ get_xen_basic_info_ia64(void)
 
 	info->frame_table_vaddr = VIRT_FRAME_TABLE_ADDR; /* "frame_table" is same value */
 
-	if (!info->xen_crash_info.com ||
-	    info->xen_crash_info.com->xen_major_version < 4) {
+	if (info->xen_major_version < 4) {
 		if (SYMBOL(xenheap_phys_end) == NOT_FOUND_SYMBOL) {
 			ERRMSG("Can't get the symbol of xenheap_phys_end.\n");
 			return FALSE;

@@ -97,8 +97,7 @@ int get_xen_basic_info_x86(void)
 	} else
 		info->frame_table_vaddr = FRAMETABLE_VIRT_START;
 
-	if (!info->xen_crash_info.com ||
-	    info->xen_crash_info.com->xen_major_version < 4) {
+	if (info->xen_major_version < 4) {
 		unsigned long xen_end;
 
 		if (SYMBOL(xenheap_phys_end) == NOT_FOUND_SYMBOL) {

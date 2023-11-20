@@ -222,17 +222,15 @@ int get_xen_basic_info_x86_64(void)
 		}
 		info->frame_table_vaddr = frame_table_vaddr;
 	} else {
-		if (info->xen_crash_info.com &&
-		    ((info->xen_crash_info.com->xen_major_version == 4 &&
-		      info->xen_crash_info.com->xen_minor_version >= 3) ||
-		      info->xen_crash_info.com->xen_major_version > 4))
+		if ((info->xen_major_version == 4 &&
+		     info->xen_minor_version >= 3) ||
+		    info->xen_major_version > 4)
 			info->frame_table_vaddr = FRAMETABLE_VIRT_START_V4_3;
 		else
 			info->frame_table_vaddr = FRAMETABLE_VIRT_START_V3;
 	}
 
-	if (!info->xen_crash_info.com ||
-	    info->xen_crash_info.com->xen_major_version < 4) {
+	if (info->xen_major_version < 4) {
 		unsigned long xen_end;
 
 		if (SYMBOL(xenheap_phys_end) == NOT_FOUND_SYMBOL) {
@@ -255,10 +253,9 @@ int get_xen_info_x86_64(void)
 {
 	int i;
 
-	if (info->xen_crash_info.com &&
-	    (info->xen_crash_info.com->xen_major_version >= 4 ||
-	     (info->xen_crash_info.com->xen_major_version == 3 &&
-	      info->xen_crash_info.com->xen_minor_version >= 4))) {
+	if (info->xen_major_version >= 4 ||
+	    (info->xen_major_version == 3 &&
+	     info->xen_minor_version >= 4)) {
 		/*
 		 * cf. changeset 0858f961c77a
 		 */

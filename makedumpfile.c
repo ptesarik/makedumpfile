@@ -9061,8 +9061,7 @@ get_xen_info(void)
 	if (!get_xen_basic_info_arch())
 		return FALSE;
 
-	if (!info->xen_crash_info.com ||
-	    info->xen_crash_info.com->xen_major_version < 4) {
+	if (info->xen_major_version < 4) {
 		if (SYMBOL(alloc_bitmap) == NOT_FOUND_SYMBOL) {
 			ERRMSG("Can't get the symbol of alloc_bitmap.\n");
 			return FALSE;
@@ -9217,11 +9216,11 @@ show_data_xen(void)
 	MSG("OFFSET(domain.next_in_list): %ld\n", OFFSET(domain.next_in_list));
 
 	MSG("\n");
-	if (info->xen_crash_info.com) {
+	if (info->xen_major_version) {
 		MSG("xen_major_version: %lx\n",
-		    info->xen_crash_info.com->xen_major_version);
+		    info->xen_major_version);
 		MSG("xen_minor_version: %lx\n",
-		    info->xen_crash_info.com->xen_minor_version);
+		    info->xen_minor_version);
 	}
 	MSG("xen_phys_start: %lx\n", info->xen_phys_start);
 	MSG("frame_table_vaddr: %lx\n", info->frame_table_vaddr);
@@ -9543,8 +9542,7 @@ exclude_xen_user_domain(void)
 
 	clock_gettime(CLOCK_MONOTONIC, &ts_start);
 
-	if (info->xen_crash_info.com &&
-	    info->xen_crash_info.com->xen_major_version >= 4)
+	if (info->xen_major_version >= 4)
 		ret = exclude_xen4_user_domain();
 	else
 		ret = exclude_xen3_user_domain();
@@ -9567,6 +9565,7 @@ initial_xen(void)
 	return FALSE;
 #else
 	int xen_info_required = TRUE;
+	kdump_status status;
 
 #ifndef __x86_64__
 	if (DL_EXCLUDE_ZERO < info->max_dump_level) {
@@ -9600,6 +9599,25 @@ initial_xen(void)
 
 	if (!init_xen_crash_info())
 		return FALSE;
+
+	info->xen_major_version = info->xen_minor_version = 0;
+	status = kdump_get_number_attr(info->ctx_memory_xen,
+				       "xen.version.major",
+				       &info->xen_major_version);
+	if (status != KDUMP_OK && status != KDUMP_ERR_NODATA) {
+		ERRMSG("Can't get Xen major version: %s\n",
+		       kdump_get_err(info->ctx_memory_xen));
+		return FALSE;
+	}
+	status = kdump_get_number_attr(info->ctx_memory_xen,
+				       "xen.version.minor",
+				       &info->xen_minor_version);
+	if (status != KDUMP_OK && status != KDUMP_ERR_NODATA) {
+		ERRMSG("Can't get Xen minor version: %s\n",
+		       kdump_get_err(info->ctx_memory_xen));
+		return FALSE;
+	}
+
 	/*
 	 * Get the debug information for analysis from the vmcoreinfo file
 	 */

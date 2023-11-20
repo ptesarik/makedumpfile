@@ -1325,6 +1325,8 @@ struct DumpInfo {
 		xen_crash_info_t *v1;	     /* without xen_phys_start */
 		xen_crash_info_v2_t *v2;     /* changeset 439a3e9459f2 */
 	} xen_crash_info;
+	kdump_num_t	xen_major_version;
+	kdump_num_t	xen_minor_version;
 
 	mdf_pfn_t	dom0_mapnr;	/* The number of page in domain-0.
 					 * Different from max_mapnr.
