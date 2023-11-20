@@ -28,6 +28,9 @@
 #include <assert.h>
 #include <zlib.h>
 
+/* 10 pages cover 5-level paging, 2-level Xen p2m and 3 data page. */
+#define PAGE_CACHE_SIZE	10
+
 struct symbol_table	symbol_table;
 struct size_table	size_table;
 struct offset_table	offset_table;
@@ -1431,11 +1434,18 @@ open_dump_memory(int *fdp, kdump_ctx_t **ctxp)
 		ERRMSG("Can't allocate libkdumpfile context.");
 		goto error;
 	}
+	if (kdump_set_number_attr(ctx, "cache.size", PAGE_CACHE_SIZE)
+	    != KDUMP_OK) {
+		ERRMSG("Can't set libkdumpfile cache size.");
+		goto error_ctx;
+	}
 
 	*fdp = fd;
 	*ctxp = ctx;
 	return TRUE;
 
+error_ctx:
+	kdump_free(ctx);
 error:
 	close(fd);
 	return FALSE;
