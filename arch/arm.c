@@ -20,36 +20,6 @@
 #include "../elf_info.h"
 #include "../makedumpfile.h"
 
-#define PMD_TYPE_MASK	3
-#define PMD_TYPE_SECT	2
-#define PMD_TYPE_TABLE	1
-
-#define pgd_index(vaddr) ((vaddr) >> PGDIR_SHIFT)
-#define pte_index(vaddr) ((vaddr >> PAGESHIFT()) & (PTRS_PER_PTE - 1))
-
-#define pgd_offset(pgdir, vaddr) \
-	((pgdir) + pgd_index(vaddr) * 2 * sizeof(unsigned long))
-#define pmd_offset(dir, vaddr) (dir)
-#define pte_offset(pmd, vaddr) \
-	(pmd_page_vaddr(pmd) + pte_index(vaddr) * sizeof(unsigned long))
-
-/*
- * These only work for kernel directly mapped addresses.
- */
-#define __va(paddr) ((paddr) - info->phys_base + info->page_offset)
-#define __pa(vaddr) ((vaddr) - info->page_offset + info->phys_base)
-
-static inline unsigned long
-pmd_page_vaddr(unsigned long pmd)
-{
-	unsigned long ptr;
-
-	ptr = pmd & ~(PTRS_PER_PTE * sizeof(void *) - 1);
-	ptr += PTRS_PER_PTE * sizeof(void *);
-
-	return __va(ptr);
-}
-
 int
 get_phys_base_arm(void)
 {

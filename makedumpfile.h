@@ -547,14 +547,6 @@ unsigned long get_kvbase_arm64(void);
 #define _MAX_PHYSMEM_BITS	(32)
 #define ARCH_PFN_OFFSET		(info->phys_base >> PAGESHIFT())
 
-#define PTRS_PER_PTE		(512)
-#define PGDIR_SHIFT		(21)
-#define PMD_SHIFT		(21)
-#define PMD_SIZE		(1UL << PMD_SHIFT)
-#define PMD_MASK		(~(PMD_SIZE - 1))
-
-#define _PAGE_PRESENT		(1 << 0)
-
 #endif /* arm */
 
 #ifdef __x86__
@@ -568,26 +560,6 @@ unsigned long get_kvbase_arm64(void);
 #define _SECTION_SIZE_BITS_PAE_2_6_26	(29)
 #define _MAX_PHYSMEM_BITS	(32)
 #define _MAX_PHYSMEM_BITS_PAE	(36)
-
-#define PGDIR_SHIFT_3LEVEL	(30)
-#define PTRS_PER_PTE_3LEVEL	(512)
-#define PTRS_PER_PGD_3LEVEL	(4)
-#define PMD_SHIFT		(21)  /* only used by PAE translators */
-#define PTRS_PER_PMD		(512) /* only used by PAE translators */
-#define PTE_SHIFT		(12)  /* only used by PAE translators */
-#define PTRS_PER_PTE		(512) /* only used by PAE translators */
-
-#define pgd_index_PAE(address)  (((address) >> PGDIR_SHIFT_3LEVEL) & (PTRS_PER_PGD_3LEVEL - 1))
-#define pmd_index(address)  (((address) >> PMD_SHIFT) & (PTRS_PER_PMD - 1))
-#define pte_index(address)  (((address) >> PTE_SHIFT) & (PTRS_PER_PTE - 1))
-
-#define _PAGE_PRESENT		(0x001)
-#define _PAGE_PSE		(0x080)
-
-/* Physical addresses are up to 52 bits (AMD64).
- * Mask off bits 52-62 (reserved) and bit 63 (NX).
- */
-#define ENTRY_MASK		(~0xfff0000000000fffULL)
 
 #endif /* x86 */
 
@@ -623,37 +595,14 @@ unsigned long get_kvbase_arm64(void);
  * 4 Levels paging
  */
 #define PGD_SHIFT		(39)
-#define PUD_SHIFT		(30)
-#define PMD_SHIFT		(21)
 #define PTE_SHIFT		(12)
 
 #define PTRS_PER_PGD		(512)
 #define PTRS_PER_PUD		(512)
 #define PTRS_PER_PMD		(512)
-#define PTRS_PER_PTE		(512)
 
-#define PUD_SIZE		(1UL << PUD_SHIFT)
-#define PUD_MASK		(~(PUD_SIZE - 1))
-#define PMD_SIZE		(1UL << PMD_SHIFT)
-#define PMD_MASK		(~(PMD_SIZE - 1))
-
-/*
- * 5 Levels paging
- */
-#define PGD_SHIFT_5LEVEL	(48)
-#define P4D_SHIFT		(39)
-
-#define PTRS_PER_PGD_5LEVEL	(512)
-#define PTRS_PER_P4D		(512)
-
-#define pgd5_index(address)  (((address) >> PGD_SHIFT_5LEVEL) & (PTRS_PER_PGD_5LEVEL - 1))
 #define pgd_index(address)  (((address) >> PGD_SHIFT) & (PTRS_PER_PGD - 1))
-#define p4d_index(address)  (((address) >> P4D_SHIFT) & (PTRS_PER_P4D - 1))
-#define pud_index(address)  (((address) >> PUD_SHIFT) & (PTRS_PER_PUD - 1))
-#define pmd_index(address)  (((address) >> PMD_SHIFT) & (PTRS_PER_PMD - 1))
-#define pte_index(address)  (((address) >> PTE_SHIFT) & (PTRS_PER_PTE - 1))
 
-#define _PAGE_PRESENT		(0x001)
 #define _PAGE_PSE		(0x080)    /* 2MB or 1GB page */
 
 #endif /* x86_64 */
@@ -672,72 +621,6 @@ unsigned long get_kvbase_arm64(void);
 #define VMEMMAP_REGION_ID       (0xfUL)
 
 /*
- * If PAGE_PTE is set, then it's a leaf PTE for hugepage
- */
-#define PAGE_PTE (1UL << 62)
-#define IS_HUGEPAGE(pte) (!!((pte) & PAGE_PTE))
-
-/* 4-level page table support */
-
-/* 4K pagesize */
-#define PTE_INDEX_SIZE_L4_4K  9
-#define PMD_INDEX_SIZE_L4_4K  7
-#define PUD_INDEX_SIZE_L4_4K  7
-#define PGD_INDEX_SIZE_L4_4K  9
-#define PUD_INDEX_SIZE_L4_4K_3_7  9
-#define PTE_INDEX_SIZE_RADIX_4K  9
-#define PMD_INDEX_SIZE_RADIX_4K  9
-#define PUD_INDEX_SIZE_RADIX_4K  9
-#define PGD_INDEX_SIZE_RADIX_4K  13
-#define PTE_RPN_SHIFT_L4_4K  17
-#define PTE_RPN_SHIFT_L4_4K_4_5  18
-#define PGD_MASKED_BITS_4K  0
-#define PUD_MASKED_BITS_4K  0
-#define PMD_MASKED_BITS_4K  0
-
-/* 64K pagesize */
-#define PTE_INDEX_SIZE_L4_64K   12
-#define PMD_INDEX_SIZE_L4_64K   12
-#define PUD_INDEX_SIZE_L4_64K   0
-#define PGD_INDEX_SIZE_L4_64K   4
-#define PTE_INDEX_SIZE_L4_64K_3_10  8
-#define PMD_INDEX_SIZE_L4_64K_3_10  10
-#define PGD_INDEX_SIZE_L4_64K_3_10  12
-#define PMD_INDEX_SIZE_L4_64K_4_6  5
-#define PUD_INDEX_SIZE_L4_64K_4_6  5
-#define PMD_INDEX_SIZE_L4_64K_4_12 10
-#define PUD_INDEX_SIZE_L4_64K_4_12 7
-#define PGD_INDEX_SIZE_L4_64K_4_12 8
-#define PUD_INDEX_SIZE_L4_64K_4_17 10
-#define PTE_INDEX_SIZE_RADIX_64K  5
-#define PMD_INDEX_SIZE_RADIX_64K  9
-#define PUD_INDEX_SIZE_RADIX_64K  9
-#define PGD_INDEX_SIZE_RADIX_64K  13
-#define PTE_RPN_SHIFT_L4_64K_V1  32
-#define PTE_RPN_SHIFT_L4_64K_V2  30
-#define PGD_MASKED_BITS_64K  0
-#define PUD_MASKED_BITS_64K  0x1ff
-#define PMD_MASKED_BITS_64K  0x1ff
-#define PMD_MASKED_BITS_64K_3_11 0xfff
-#define PGD_MASKED_BITS_64K_4_6  0xc0000000000000ffUL
-#define PUD_MASKED_BITS_64K_4_6  0xc0000000000000ffUL
-#define PMD_MASKED_BITS_64K_4_6  0xc0000000000000ffUL
-
-#define PTE_RPN_MASK_DEFAULT  0xffffffffffffffffUL
-#define PTE_RPN_SIZE_L4_4_6   (info->page_size == 65536 ? 41 : 45)
-#define PTE_RPN_MASK_L4_4_6   (((1UL << PTE_RPN_SIZE_L4_4_6) - 1) << info->page_shift)
-#define PTE_RPN_SHIFT_L4_4_6  info->page_shift
-
-#define PGD_MASKED_BITS_4_7  0xc0000000000000ffUL
-#define PUD_MASKED_BITS_4_7  0xc0000000000000ffUL
-#define PMD_MASKED_BITS_4_7  0xc0000000000000ffUL
-
-#define PTE_RPN_SIZE_L4_4_11  53
-#define PTE_RPN_MASK_L4_4_11   \
-	(((1UL << PTE_RPN_SIZE_L4_4_11) - 1) & ~((1UL << info->page_shift) - 1))
-#define PTE_RPN_SHIFT_L4_4_11  info->page_shift
-
-/*
  * Supported MMU types
  */
 #define STD_MMU         0x0
@@ -746,22 +629,6 @@ unsigned long get_kvbase_arm64(void);
  * in the kernel. Use the same flag here.
  */
 #define RADIX_MMU       0x40
-
-
-#define PGD_MASK_L4		\
-	(info->kernel_version >= KERNEL_VERSION(3, 10, 0) ? (info->ptrs_per_pgd - 1) : 0x1ff)
-#define PGD_OFFSET_L4(vaddr)	((vaddr >> (info->l4_shift)) & PGD_MASK_L4)
-
-#define PUD_OFFSET_L4(vaddr)	\
-	((vaddr >> (info->l3_shift)) & (info->ptrs_per_l3 - 1))
-
-#define PMD_OFFSET_L4(vaddr)	\
-	((vaddr >> (info->l2_shift)) & (info->ptrs_per_l2 - 1))
-
-#define _PAGE_PRESENT		\
-	(info->kernel_version >= KERNEL_VERSION(4, 6, 0) ? \
-	(0x1UL << 63) : (info->kernel_version >= KERNEL_VERSION(4, 5, 0) ? \
-			0x2UL : 0x1UL))
 
 #endif
 
@@ -782,37 +649,6 @@ unsigned long get_kvbase_arm64(void);
 #define _SECTION_SIZE_BITS	(28)
 #define _MAX_PHYSMEM_BITS_ORIG          (42)
 #define _MAX_PHYSMEM_BITS_3_3           (46)
-
-/* Bits in the segment/region table address-space-control-element */
-#define _ASCE_TYPE_MASK		0x0c
-#define _ASCE_TABLE_LENGTH	0x03	/* region table length  */
-
-#define TABLE_LEVEL(x)		(((x) & _ASCE_TYPE_MASK) >> 2)
-#define TABLE_LENGTH(x)		((x) & _ASCE_TABLE_LENGTH)
-
-/* Bits in the region table entry */
-#define _REGION_ENTRY_ORIGIN	~0xfffUL	/* region table origin*/
-#define _REGION_ENTRY_TYPE_MASK	0x0c	/* region table type mask */
-#define _REGION_ENTRY_INVALID	0x20	/* invalid region table entry */
-#define _REGION_ENTRY_LENGTH	0x03	/* region table length */
-#define _REGION_ENTRY_LARGE	0x400
-#define _REGION_OFFSET_MASK	0x7ffUL	/* region/segment table offset mask */
-
-#define RSG_TABLE_LEVEL(x)	(((x) & _REGION_ENTRY_TYPE_MASK) >> 2)
-#define RSG_TABLE_LENGTH(x)	((x) & _REGION_ENTRY_LENGTH)
-
-/* Bits in the segment table entry */
-#define _SEGMENT_ENTRY_ORIGIN	~0x7ffUL
-#define _SEGMENT_ENTRY_LARGE	0x400
-#define _SEGMENT_ENTRY_CO	0x100
-#define _SEGMENT_PAGE_SHIFT	31
-#define _SEGMENT_INDEX_SHIFT	20
-
-/* Hardware bits in the page table entry */
-#define _PAGE_ZERO		0x800	/* Bit pos 52 must conatin zero */
-#define _PAGE_INVALID		0x400	/* HW invalid bit */
-#define _PAGE_INDEX_SHIFT	12
-#define _PAGE_OFFSET_MASK	0xffUL	/* page table offset mask */
 
 #endif /* __s390x__ */
 
@@ -841,29 +677,6 @@ unsigned long get_kvbase_arm64(void);
 #define _MAX_PHYSMEM_BITS	(50)
 
 /*
- * 3 Levels paging
- */
-#define _PAGE_PPN_MASK		(((1UL << _MAX_PHYSMEM_BITS) - 1) & ~0xfffUL)
-#define PTRS_PER_PTD_SHIFT	(PAGESHIFT() - 3)
-
-#define PMD_SHIFT		(PAGESHIFT() + PTRS_PER_PTD_SHIFT)
-#define PGDIR_SHIFT_3L		(PMD_SHIFT   + PTRS_PER_PTD_SHIFT)
-
-#define MASK_POFFSET	((1UL << PAGESHIFT()) - 1)
-#define MASK_PTE	((1UL << PMD_SHIFT) - 1) &~((1UL << PAGESHIFT()) - 1)
-#define MASK_PMD	((1UL << PGDIR_SHIFT_3L) - 1) &~((1UL << PMD_SHIFT) - 1)
-#define MASK_PGD_3L	((1UL << REGION_SHIFT) - 1) & (~((1UL << PGDIR_SHIFT_3L) - 1))
-
-/*
- * 4 Levels paging
- */
-#define PUD_SHIFT		(PMD_SHIFT + PTRS_PER_PTD_SHIFT)
-#define PGDIR_SHIFT_4L		(PUD_SHIFT + PTRS_PER_PTD_SHIFT)
-
-#define MASK_PUD   	((1UL << REGION_SHIFT) - 1) & (~((1UL << PUD_SHIFT) - 1))
-#define MASK_PGD_4L	((1UL << REGION_SHIFT) - 1) & (~((1UL << PGDIR_SHIFT_4L) - 1))
-
-/*
  * Key for distinguishing PGTABLE_3L or PGTABLE_4L.
  */
 #define STR_PUD_T_3L	"include/asm-generic/pgtable-nopud.h"
@@ -885,76 +698,6 @@ unsigned long get_kvbase_arm64(void);
 #define VMEMMAP_CHUNK_MASK	(~(VMEMMAP_CHUNK - 1UL))
 
 #define PAGE_SHIFT		13
-#define PAGE_SIZE		(1UL << PAGE_SHIFT)
-#define PAGE_MASK		(~(PAGE_SIZE - 1))
-
-#define MAX_PHYS_ADDRESS_LOBITS	(41)
-#define NR_CHUNKS_SHIFT		(MAX_PHYS_ADDRESS_LOBITS - PAGE_SHIFT + 6)
-#define NR_CHUNKS_MASK		(~((1UL << NR_CHUNKS_SHIFT) - 1))
-
-#define PMD_SHIFT		(PAGE_SHIFT + (PAGE_SHIFT - 3))
-#define PMD_SIZE		(1UL << PMD_SHIFT)
-#define PMD_MASK		(~(PMD_SIZE - 1))
-#define PMD_BITS		(PAGE_SHIFT - 3)
-
-#define PUD_SHIFT		(PMD_SHIFT + PMD_BITS)
-#define PUD_SIZE		(1UL << PUD_SHIFT)
-#define PUD_MASK		(~(PUD_SIZE - 1))
-#define PUD_BITS		(PAGE_SHIFT - 3)
-
-#define PGDIR_SHIFT_L4		(PUD_SHIFT + PUD_BITS)
-#define PGDIR_SIZE_L4		(1UL << PGDIR_SHIFT_L4)
-#define PGDIR_MASK_L4		(~(PGDIR_SIZE_L4 - 1))
-
-#define PGDIR_SHIFT_L3		(PMD_SHIFT + PMD_BITS)
-#define PGDIR_SIZE_L3		(1UL << PGDIR_SHIFT_L3)
-#define PGDIR_MASK_L3		(~(PGDIR_SIZE_L3 - 1))
-
-#define PGDIR_BITS		(PAGE_SHIFT - 3)
-
-#define PTRS_PER_PTE		(1UL << (PAGE_SHIFT - 3))
-#define PTRS_PER_PMD		(1UL << PMD_BITS)
-#define PTRS_PER_PUD		(1UL << PUD_BITS)
-#define PTRS_PER_PGD		(1UL << PGDIR_BITS)
-
-#define _PAGE_PMD_HUGE		(0x0100000000000000UL)
-#define _PAGE_PUD_HUGE		_PAGE_PMD_HUGE
-#define _PAGE_PADDR_4V		(0x00FFFFFFFFFFE000UL)
-#define _PAGE_PRESENT_4V	(0x0000000000000010UL)
-
-typedef unsigned long pte_t;
-typedef unsigned long pmd_t;
-typedef unsigned long pud_t;
-typedef unsigned long pgd_t;
-
-#define pud_none(pud)		(!(pud))
-#define pgd_none(pgd)		(!(pgd))
-#define pmd_none(pmd)		(!(pmd))
-
-#define pte_to_pa(pte) (pte & _PAGE_PADDR_4V)
-
-#define pgd_index_l4(addr) (((addr) >> PGDIR_SHIFT_L4) & (PTRS_PER_PGD - 1))
-#define pgd_offset_l4(pgdir,addr)	((unsigned long) \
-				 ((pgd_t *)pgdir + pgd_index_l4(addr)))
-
-#define pgd_index_l3(addr) (((addr) >> PGDIR_SHIFT_L3) & (PTRS_PER_PGD - 1))
-#define pgd_offset_l3(pgdir,addr)	((unsigned long) \
-				 ((pgd_t *)pgdir + pgd_index_l3(addr)))
-
-#define pud_index(addr)		(((addr) >> PUD_SHIFT) & (PTRS_PER_PUD - 1))
-#define pud_offset(pgdp, addr)	((unsigned long) \
-				 ((pud_t *)pgdp + pud_index(addr)))
-#define pud_large(pud)		(pud & _PAGE_PUD_HUGE)
-
-#define pmd_index(addr)		(((addr) >> PMD_SHIFT) & (PTRS_PER_PMD - 1))
-#define pmd_offset(pudp, addr)	((unsigned long) \
-				 ((pmd_t *)pudp + pmd_index(addr)))
-#define pmd_large(pmd)		(pmd & _PAGE_PMD_HUGE)
-
-#define pte_index(addr)		(((addr) >> PAGE_SHIFT) & (PTRS_PER_PTE - 1))
-#define pte_offset(pmdp, addr)	((unsigned long) \
-				 ((pte_t *)(pte_to_pa(pmdp) + pte_index(addr))))
-#define pte_present(pte)	(pte & _PAGE_PRESENT_4V)
 
 #endif          /* sparc64 */
 
@@ -1546,24 +1289,6 @@ struct DumpInfo {
 	 * page table info for ppc64
 	 */
 	int		cur_mmu_type;
-	int		ptrs_per_pgd;
-	uint		l4_index_size;
-	uint		l3_index_size;
-	uint		l2_index_size;
-	uint		l1_index_size;
-	uint		ptrs_per_l4;
-	uint		ptrs_per_l3;
-	uint		ptrs_per_l2;
-	uint		ptrs_per_l1;
-	uint		l4_shift;
-	uint		l3_shift;
-	uint		l2_shift;
-	uint		l1_shift;
-	uint		pte_rpn_shift;
-	ulong		pte_rpn_mask;
-	ulong		pgd_masked_bits;
-	ulong		pud_masked_bits;
-	ulong		pmd_masked_bits;
 	ulong		kernel_pgd;
 	char		*page_buf; /* Page buffer to read page tables */
 
@@ -2354,10 +2079,6 @@ int get_xen_info_x86(void);
 
 #ifdef __x86_64__
 
-/* The architectural limit for physical addresses is 52 bits.
- * Mask off bits 52-62 (available for OS use) and bit 63 (NX).
- */
-#define ENTRY_MASK		(~0xfff0000000000fffULL)
 #define MAX_X86_64_FRAMES	(info->page_size / sizeof(unsigned long))
 
 #define PAGE_OFFSET_XEN_DOM0		(0xffff880000000000) /* different from linux */
@@ -2381,15 +2102,6 @@ int get_xen_info_x86_64(void);
 #define DIRECTMAP_VIRT_START	(0xf000000000000000)
 #define VIRT_FRAME_TABLE_ADDR	(0xf300000000000000)
 #define VIRT_FRAME_TABLE_END	(0xf400000000000000)
-
-#define PGDIR_SHIFT	(PAGESHIFT() + 2 * (PAGESHIFT() - 3))
-#define PTRS_PER_PGD	(1UL << (PAGESHIFT() - 3))
-#define PTRS_PER_PMD	(1UL << (PAGESHIFT() - 3))
-#define PTRS_PER_PTE	(1UL << (PAGESHIFT() - 3))
-
-#define IA64_MAX_PHYS_BITS	50
-#define _PAGE_P		(1)
-#define _PFN_MASK	(((1UL << IA64_MAX_PHYS_BITS) - 1) & ~0xfffUL)
 
 int get_xen_basic_info_ia64(void);
 #define get_xen_basic_info_arch(X) get_xen_basic_info_ia64(X)
