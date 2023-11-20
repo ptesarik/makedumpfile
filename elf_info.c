@@ -46,7 +46,6 @@ struct pt_load_segment {
 };
 
 static int			nr_cpus;             /* number of cpu */
-static off_t			max_file_offset;
 
 /*
  * File information about /proc/vmcore:
@@ -806,13 +805,6 @@ int get_kcore_dump_loads(void)
 				crash_reserved_mem[i].start, crash_reserved_mem[i].end + 1);
 	}
 
-	max_file_offset = 0;
-	for (i = 0; i < num_pt_loads; ++i) {
-		struct pt_load_segment *p = &pt_loads[i];
-		max_file_offset = MAX(max_file_offset,
-				      p->file_offset + p->phys_end - p->phys_start);
-	}
-
 	DEBUG_MSG("%8s %16s %16s %16s %16s\n", "",
 		"phys_start", "phys_end", "virt_start", "virt_end");
 	for (i = 0; i < num_pt_loads; ++i) {
@@ -875,12 +867,6 @@ get_elf_info(int fd, char *filename)
 		if(!dump_Elf_load(&phdr, j))
 			return FALSE;
 		j++;
-	}
-	max_file_offset = 0;
-	for (i = 0; i < num_pt_loads; ++i) {
-		struct pt_load_segment *p = &pt_loads[i];
-		max_file_offset = MAX(max_file_offset,
-				      p->file_offset + p->phys_end - p->phys_start);
 	}
 	if (!has_pt_note()) {
 		ERRMSG("Can't find PT_NOTE Phdr.\n");
@@ -1163,10 +1149,4 @@ set_eraseinfo(off_t offset, unsigned long size)
 {
 	offset_eraseinfo = offset;
 	size_eraseinfo   = size;
-}
-
-off_t
-get_max_file_offset(void)
-{
-	return max_file_offset;
 }
