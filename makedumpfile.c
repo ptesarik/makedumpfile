@@ -9026,7 +9026,6 @@ init_xen_crash_info(void)
 
 	get_xen_crash_info(&offset_xen_crash_info, &size_xen_crash_info);
 	if (!size_xen_crash_info) {
-		info->xen_crash_info_v = -1;
 		return TRUE;		/* missing info is non-fatal */
 	}
 
@@ -9056,13 +9055,6 @@ init_xen_crash_info(void)
 	}
 
 	info->xen_crash_info.com = buf;
-	if (size_xen_crash_info >= sizeof(xen_crash_info_v2_t))
-		info->xen_crash_info_v = 2;
-	else if (size_xen_crash_info >= sizeof(xen_crash_info_t))
-		info->xen_crash_info_v = 1;
-	else
-		info->xen_crash_info_v = 0;
-
 	return TRUE;
 
 out_error:
