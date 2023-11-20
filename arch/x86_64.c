@@ -21,18 +21,6 @@
 extern struct vmap_pfns *gvmem_pfns;
 extern int nr_gvmem_pfns;
 
-static unsigned long
-get_xen_p2m_mfn(void)
-{
-	if (info->xen_crash_info_v >= 2)
-		return info->xen_crash_info.v2->
-			dom0_pfn_to_mfn_frame_list_list;
-	if (info->xen_crash_info_v >= 1)
-		return info->xen_crash_info.v1->
-			dom0_pfn_to_mfn_frame_list_list;
-	return NOT_FOUND_LONG_VALUE;
-}
-
 static int
 check_5level_paging(void)
 {
@@ -171,101 +159,9 @@ get_phys_base_x86_64(void)
 int
 get_machdep_info_x86_64(void)
 {
-	unsigned long p2m_mfn;
-	int i, j, *mfns = NULL;
-	unsigned long *frame_mfn = NULL;
-	unsigned long *buf = NULL;
-	int ret = FALSE;
-
 	info->section_size_bits = _SECTION_SIZE_BITS;
 
-	if (!is_xen_memory())
-		return TRUE;
-
-	/*
-	 * Get the information for translating domain-0's physical
-	 * address into machine address.
-	 */
-	p2m_mfn = get_xen_p2m_mfn();
-	if (p2m_mfn == (unsigned long)NOT_FOUND_LONG_VALUE) {
-		ERRMSG("Can't get p2m_mfn address.\n");
-		return FALSE;
-	}
-
-	frame_mfn = malloc(sizeof(*frame_mfn) * MAX_X86_64_FRAMES);
-	if (!frame_mfn) {
-		ERRMSG("Can't allocate frame_mfn buffer. %s\n", strerror(errno));
-		return FALSE;
-	}
-
-	if (!readmem(PADDR, pfn_to_paddr(p2m_mfn), frame_mfn, PAGESIZE())) {
-		ERRMSG("Can't read p2m_mfn.\n");
-		goto out;
-	}
-
-	mfns = malloc(sizeof(*mfns) * MAX_X86_64_FRAMES);
-	if (!mfns) {
-		ERRMSG("Can't allocate mfns buffer. %s\n", strerror(errno));
-		goto out;
-	}
-
-	buf = malloc(sizeof(*buf) * MFNS_PER_FRAME);
-	if (!buf) {
-		ERRMSG("Can't allocate buffer. %s\n", strerror(errno));
-		goto out;
-	}
-
-	/*
-	 * Count the number of p2m frame.
-	 */
-	for (i = 0; i < MAX_X86_64_FRAMES; i++) {
-		mfns[i] = 0;
-		if (!frame_mfn[i])
-			break;
-
-		if (!readmem(PADDR, pfn_to_paddr(frame_mfn[i]), buf, PAGESIZE())) {
-			ERRMSG("Can't get frame_mfn[%d].\n", i);
-			goto out;
-		}
-		for (j = 0; j < MFNS_PER_FRAME; j++) {
-			if (!buf[j])
-				break;
-
-			mfns[i]++;
-		}
-		info->p2m_frames += mfns[i];
-	}
-	info->p2m_mfn_frame_list
-	    = malloc(sizeof(unsigned long) * info->p2m_frames);
-	if (info->p2m_mfn_frame_list == NULL) {
-		ERRMSG("Can't allocate memory for p2m_mfn_frame_list. %s\n",
-		    strerror(errno));
-		goto out;
-	}
-
-	/*
-	 * Get p2m_mfn_frame_list.
-	 */
-	for (i = 0; i < MAX_X86_64_FRAMES; i++) {
-		if (!frame_mfn[i])
-			break;
-
-		if (!readmem(PADDR, pfn_to_paddr(frame_mfn[i]),
-		    &info->p2m_mfn_frame_list[i * MFNS_PER_FRAME],
-		    mfns[i] * sizeof(unsigned long))) {
-			ERRMSG("Can't get p2m_mfn_frame_list.\n");
-			goto out;
-		}
-		if (mfns[i] != MFNS_PER_FRAME)
-			break;
-	}
-
-	ret = TRUE;
-out:
-	free(buf);
-	free(mfns);
-	free(frame_mfn);
-	return ret;
+	return TRUE;
 }
 
 int
