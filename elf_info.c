@@ -32,8 +32,6 @@
 #define VMCOREINFO_NOTE_NAME		"VMCOREINFO"
 #define VMCOREINFO_NOTE_NAME_BYTES	(sizeof(VMCOREINFO_NOTE_NAME))
 
-#define XEN_ELFNOTE_CRASH_INFO	(0x1000001)
-
 struct pt_load_segment {
 	off_t			file_offset;
 	off_t			file_size;
@@ -77,13 +75,6 @@ static unsigned long		size_vmcoreinfo;
  */
 static off_t			offset_eraseinfo;
 static unsigned long		size_eraseinfo;
-
-/*
- * Xen information:
- */
-static off_t			offset_xen_crash_info;
-static unsigned long		size_xen_crash_info;
-
 
 /*
  * Internal functions.
@@ -314,14 +305,6 @@ get_pt_note_info(void)
 				    VMCOREINFO_NOTE_NAME_BYTES)) {
 			if (n_type == 0) {
 				set_vmcoreinfo(offset_desc, size_desc);
-			}
-		/*
-		 * Check whether /proc/vmcore contains xen's note.
-		 */
-		} else if (!strncmp("Xen", buf, 4)) {
-			if (n_type == XEN_ELFNOTE_CRASH_INFO) {
-				offset_xen_crash_info = offset_desc;
-				size_xen_crash_info   = size_desc;
 			}
 		/*
 		 * Check whether a source dumpfile contains eraseinfo.
@@ -909,15 +892,6 @@ get_vmcoreinfo(off_t *offset, unsigned long *size)
 		*offset = offset_vmcoreinfo;
 	if (size)
 		*size   = size_vmcoreinfo;
-}
-
-void
-get_xen_crash_info(off_t *offset, unsigned long *size)
-{
-	if (offset)
-		*offset = offset_xen_crash_info;
-	if (size)
-		*size   = size_xen_crash_info;
 }
 
 int

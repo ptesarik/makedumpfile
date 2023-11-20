@@ -992,43 +992,6 @@ typedef unsigned long long mdf_pfn_t;
 #define pfn_to_paddr(X) \
 	(((mdf_pfn_t)(X) + ARCH_PFN_OFFSET) << PAGESHIFT())
 
-/* Format of Xen crash info ELF note */
-typedef struct {
-	unsigned long xen_major_version;
-	unsigned long xen_minor_version;
-	unsigned long xen_extra_version;
-	unsigned long xen_changeset;
-	unsigned long xen_compiler;
-	unsigned long xen_compile_date;
-	unsigned long xen_compile_time;
-	unsigned long tainted;
-} xen_crash_info_com_t;
-
-typedef struct {
-	xen_crash_info_com_t com;
-#if defined(__x86__) || defined(__x86_64__)
-	/* added by changeset 2b43fb3afb3e: */
-	unsigned long dom0_pfn_to_mfn_frame_list_list;
-#endif
-#if defined(__ia64__)
-	/* added by changeset d7c3b12014b3: */
-	unsigned long dom0_mm_pgd_mfn;
-#endif
-} xen_crash_info_t;
-
-/* changeset 439a3e9459f2 added xen_phys_start
- * to the middle of the struct... */
-typedef struct {
-	xen_crash_info_com_t com;
-#if defined(__x86__) || defined(__x86_64__)
-	unsigned long xen_phys_start;
-	unsigned long dom0_pfn_to_mfn_frame_list_list;
-#endif
-#if defined(__ia64__)
-	unsigned long dom0_mm_pgd_mfn;
-#endif
-} xen_crash_info_v2_t;
-
 struct mem_map_data {
 	mdf_pfn_t	pfn_start;
 	mdf_pfn_t	pfn_end;
@@ -1320,11 +1283,6 @@ struct DumpInfo {
 	 * for Xen extraction
 	 */
 	int is_xen;
-	union {				/* Both versions of Xen crash info: */
-		xen_crash_info_com_t *com;   /* common fields */
-		xen_crash_info_t *v1;	     /* without xen_phys_start */
-		xen_crash_info_v2_t *v2;     /* changeset 439a3e9459f2 */
-	} xen_crash_info;
 	kdump_num_t	xen_major_version;
 	kdump_num_t	xen_minor_version;
 
