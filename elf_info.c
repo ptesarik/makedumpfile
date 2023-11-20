@@ -53,7 +53,6 @@ static char			*name_memory;
 
 static int			flags_memory;
 #define MEMORY_ELF64		(1 << 0)
-#define MEMORY_XEN		(1 << 1)
 
 /*
  * PT_LOAD information about /proc/vmcore:
@@ -321,7 +320,6 @@ get_pt_note_info(void)
 		 */
 		} else if (!strncmp("Xen", buf, 4)) {
 			if (n_type == XEN_ELFNOTE_CRASH_INFO) {
-				flags_memory |= MEMORY_XEN;
 				offset_xen_crash_info = offset_desc;
 				size_xen_crash_info   = size_desc;
 			}
@@ -717,7 +715,9 @@ is_elf64_memory(void)
 int
 is_xen_memory(void)
 {
-	return (flags_memory & MEMORY_XEN);
+	kdump_num_t num = KDUMP_XEN_NONE;
+	kdump_get_number_attr(info->ctx_memory, KDUMP_ATTR_XEN_TYPE, &num);
+	return num != KDUMP_XEN_NONE;
 }
 
 int
