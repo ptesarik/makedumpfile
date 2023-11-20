@@ -672,12 +672,6 @@ unsigned long get_kvbase_arm64(void);
 #define _SECTION_SIZE_BITS	(30)
 #define _MAX_PHYSMEM_BITS	(50)
 
-/*
- * Key for distinguishing PGTABLE_3L or PGTABLE_4L.
- */
-#define STR_PUD_T_3L	"include/asm-generic/pgtable-nopud.h"
-#define STR_PUD_T_4L	"include/asm/page.h"
-
 #endif          /* ia64 */
 
 #ifdef __sparc64__
@@ -1963,7 +1957,6 @@ struct srcfile_table {
 	/*
 	 * typedef
 	 */
-	char	pud_t[LEN_SRCFILE];
 };
 
 /*
