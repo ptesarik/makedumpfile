@@ -328,55 +328,6 @@ calculate_len_buf_out(long page_size)
 #define BITMAP_SECT_LEN 4096
 static inline int is_dumpable(struct dump_bitmap *, mdf_pfn_t, struct cycle *cycle);
 
-static int
-update_mmap_range(off_t offset, int initial) {
-	off_t start_offset, end_offset;
-	off_t map_size;
-	off_t max_offset = get_max_file_offset();
-	off_t pt_load_end = offset_to_pt_load_end(offset);
-
-	/*
-	 * offset for mmap() must be page aligned.
-	 */
-	start_offset = roundup(offset, info->page_size);
-	end_offset = MIN(max_offset, round(pt_load_end, info->page_size));
-
-	if (!pt_load_end || (end_offset - start_offset) <= 0)
-		return FALSE;
-
-	map_size = MIN(end_offset - start_offset, info->mmap_region_size);
-
-	info->mmap_buf = mmap(NULL, map_size, PROT_READ, MAP_PRIVATE,
-				     info->fd_memory, start_offset);
-
-	if (info->mmap_buf == MAP_FAILED) {
-		if (!initial)
-			DEBUG_MSG("Can't map [%llx-%llx] with mmap()\n %s",
-				  (ulonglong)start_offset,
-				  (ulonglong)(start_offset + map_size),
-				  strerror(errno));
-		return FALSE;
-	}
-
-	info->mmap_start_offset = start_offset;
-	info->mmap_end_offset = start_offset + map_size;
-
-	return TRUE;
-}
-
-int
-initialize_mmap(void) {
-	unsigned long long phys_start;
-	info->mmap_region_size = MAP_REGION;
-	info->mmap_buf = MAP_FAILED;
-
-	get_pt_load(0, &phys_start, NULL, NULL, NULL);
-	if (!update_mmap_range(paddr_to_offset(phys_start), 1))
-		return FALSE;
-
-	return TRUE;
-}
-
 int
 readmem(int type_addr, unsigned long long addr, void *bufptr, size_t size)
 {
