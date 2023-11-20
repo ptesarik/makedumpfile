@@ -423,32 +423,6 @@ do { \
 	} \
 } while (0)
 
-
-/*
- * for source file name
- */
-#define SRCFILE(X)		(srcfile_table.X)
-#define	TYPEDEF_SRCFILE_INIT(decl_name, str_decl_name) \
-do { \
-	get_source_filename(str_decl_name, SRCFILE(decl_name), DWARF_INFO_GET_TYPEDEF_SRCNAME); \
-} while (0)
-
-#define WRITE_SRCFILE(str_decl_name, decl_name) \
-do { \
-	if (strlen(SRCFILE(decl_name))) { \
-		fprintf(info->file_vmcoreinfo, "%s%s\n", \
-		    STR_SRCFILE(str_decl_name), SRCFILE(decl_name)); \
-	} \
-} while (0)
-
-#define READ_SRCFILE(str_decl_name, decl_name) \
-do { \
-	if (strlen(SRCFILE(decl_name)) == 0) { \
-		if (!read_vmcoreinfo_string(STR_SRCFILE(str_decl_name), SRCFILE(decl_name))) \
-			return FALSE; \
-	} \
-} while (0)
-
 /*
  * Macro for getting splitting info.
  */
@@ -507,7 +481,6 @@ do { \
 #define STR_OFFSET(X)		"OFFSET("X")="
 #define STR_LENGTH(X)		"LENGTH("X")="
 #define STR_NUMBER(X)		"NUMBER("X")="
-#define STR_SRCFILE(X)		"SRCFILE("X")="
 #define STR_CONFIG_X86_PAE	"CONFIG_X86_PAE=y"
 #define STR_KERNELOFFSET	"KERNELOFFSET="
 
@@ -1953,12 +1926,6 @@ struct number_table {
 #endif
 };
 
-struct srcfile_table {
-	/*
-	 * typedef
-	 */
-};
-
 /*
  * This structure records where the vmemmap page structures reside, and which
  * pfn's are represented by those page structures.
@@ -2009,7 +1976,6 @@ extern struct size_table	size_table;
 extern struct offset_table	offset_table;
 extern struct array_table	array_table;
 extern struct number_table	number_table;
-extern struct srcfile_table	srcfile_table;
 
 struct memory_range {
 	unsigned long long start, end;

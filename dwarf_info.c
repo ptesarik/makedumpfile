@@ -50,7 +50,6 @@ struct dwarf_info {
 	long	array_length;		/* OUT */
 	long	enum_number;		/* OUT */
 	unsigned char	type_flag;	/* OUT */
-	char	src_name[LEN_SRCFILE];	/* OUT */
 	Dwarf_Off die_offset;		/* OUT */
 };
 static struct dwarf_info	dwarf_info = {
@@ -742,7 +741,6 @@ static void
 search_typedef(Dwarf_Die *die, int *found)
 {
 	int tag = 0;
-	char *src_name = NULL;
 	const char *name;
 	Dwarf_Die die_type;
 
@@ -777,15 +775,6 @@ search_typedef(Dwarf_Die *die, int *found)
 				continue;
 
 			*found = TRUE;
-			break;
-		} else if (dwarf_info.cmd == DWARF_INFO_GET_TYPEDEF_SRCNAME) {
-			src_name = (char *)dwarf_decl_file(die);
-			if (!src_name)
-				continue;
-
-			*found = TRUE;
-			strncpy(dwarf_info.src_name, src_name, LEN_SRCFILE-1);
-			dwarf_info.src_name[LEN_SRCFILE-1] = '\0';
 			break;
 		}
 	} while (!dwarf_siblingof(die, die));
@@ -1347,23 +1336,6 @@ get_enum_number(char *enum_name)
 	DEBUG_MSG("%s   : %s %ld\n", __func__, enum_name, dwarf_info.enum_number);
 
 	return dwarf_info.enum_number;
-}
-
-/*
- * Get the source filename.
- */
-int
-get_source_filename(char *structname, char *src_name, int cmd)
-{
-	dwarf_info.cmd = cmd;
-	dwarf_info.struct_name = structname;
-
-	if (!get_debug_info())
-		return FALSE;
-
-	strncpy(src_name, dwarf_info.src_name, LEN_SRCFILE);
-
-	return TRUE;
 }
 
 /*

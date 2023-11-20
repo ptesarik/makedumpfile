@@ -16,8 +16,6 @@
 #ifndef _DWARF_INFO_H
 #define _DWARF_INFO_H
 
-#define LEN_SRCFILE			(100)
-
 #define NOT_FOUND_LONG_VALUE		(-1)
 #define FAILED_DWARFINFO		(-2)
 #define INVALID_STRUCTURE_DATA		(-3)
@@ -69,7 +67,6 @@ long get_member_offset(char *structname, char *membername, int cmd);
 char *get_member_type_name(char *structname, char *membername, int cmd, long *size, unsigned long *flag);
 long get_array_length(char *name01, char *name02, unsigned int cmd);
 long get_enum_number(char *enum_name);
-int get_source_filename(char *structname, char *src_name, int cmd);
 long get_domain(char *symname, int cmd, unsigned long long *die);
 int get_die_nfields(unsigned long long die_off);
 int get_die_member(unsigned long long die_off, int index, long *offset,
