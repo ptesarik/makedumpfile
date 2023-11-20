@@ -217,15 +217,6 @@ vaddr_to_paddr(unsigned long vaddr)
 }
 
 /*
- * Translate a Xen virtual address to a machine address.
- */
-static unsigned long long
-xen_vaddr_to_maddr(unsigned long vaddr)
-{
-	return vaddr_to_paddr_ctx(vaddr, info->ctx_memory_xen);
-}
-
-/*
  * Translate a domain-0's physical address to machine address.
  */
 static unsigned long long
@@ -426,54 +417,38 @@ static inline int is_dumpable(struct dump_bitmap *, mdf_pfn_t, struct cycle *cyc
 int
 readmem(int type_addr, unsigned long long addr, void *bufptr, size_t size)
 {
-	size_t read_size, size_orig = size;
-	kdump_paddr_t paddr;
+	size_t size_orig = size;
+	kdump_ctx_t *ctx;
+	kdump_addrspace_t as;
 
-next_page:
 	switch (type_addr) {
 	case VADDR:
-		paddr = vaddr_to_paddr(addr);
-		if (paddr == NOT_PADDR)
-			goto error;
+		ctx = info->ctx_memory;
+		as = KDUMP_KVADDR;
 		break;
 	case PADDR:
-		paddr = addr;
+		ctx = info->ctx_memory;
+		as = KDUMP_MACHPHYSADDR;
 		break;
 	case VADDR_XEN:
-		paddr = xen_vaddr_to_maddr(addr);
-		if (paddr == NOT_PADDR)
-			goto error;
+		ctx = info->ctx_memory_xen;
+		as = KDUMP_KVADDR;
 		break;
 	default:
 		ERRMSG("Invalid address type (%d).\n", type_addr);
 		goto error;
 	}
 
-	/*
-	 * Read each page, because pages are not necessarily continuous.
-	 * Ex) pages in vmalloc area
-	 */
-	read_size = MIN(info->page_size - PAGEOFFSET(paddr), size);
-
-	if (NUMBER(sme_mask) != NOT_FOUND_NUMBER)
-		paddr = paddr & ~(NUMBER(sme_mask));
-
-	if (kdump_read(info->ctx_memory, KDUMP_MACHPHYSADDR, paddr, bufptr, &read_size) != KDUMP_OK) {
+	if (kdump_read(ctx, as, addr, bufptr, &size) != KDUMP_OK) {
 		ERRMSG("%s\n", kdump_get_err(info->ctx_memory));
 		goto error;
 	}
 
-	addr += read_size;
-	bufptr += read_size;
-	size -= read_size;
-
-	if (size > 0)
-		goto next_page;
-
-	return size_orig;
+	return size;
 
 error:
-	ERRMSG("type_addr: %d, addr:%llx, size:%zd\n", type_addr, addr, size_orig);
+	ERRMSG("type_addr: %d, addr:%llx, size:%zd, read:%zd\n",
+	       type_addr, addr, size_orig, size);
 	return FALSE;
 }
 
