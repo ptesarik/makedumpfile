@@ -20,7 +20,6 @@
 #include "elf_info.h"
 #include "erase_info.h"
 #include "sadump_info.h"
-#include "cache.h"
 #include <stddef.h>
 #include <ctype.h>
 #include <sys/time.h>
@@ -3839,9 +3838,6 @@ out:
 		if (!fallback_to_current_page_size())
 			return FALSE;
 	}
-
-	if (!is_xen_memory() && !cache_init())
-		return FALSE;
 
 	if (info->flag_mem_usage && !get_kcore_dump_loads())
 		return FALSE;
@@ -9649,9 +9645,6 @@ out:
 		if (!fallback_to_current_page_size())
 			return FALSE;
 	}
-
-	if (!cache_init())
-		return FALSE;
 
 	if (xen_info_required == TRUE) {
 		if (!get_xen_info())
