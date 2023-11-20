@@ -19,54 +19,6 @@
 #include "../elf_info.h"
 #include "../makedumpfile.h"
 
-static int max_numnodes;
-static unsigned long *remap_start_vaddr;
-static unsigned long *remap_end_vaddr;
-static unsigned long *remap_start_pfn;
-
-static int
-remap_init(void)
-{
-	int n;
-
-	if (SYMBOL(node_remap_start_vaddr) == NOT_FOUND_SYMBOL)
-		return TRUE;
-	if (SYMBOL(node_remap_end_vaddr) == NOT_FOUND_SYMBOL)
-		return TRUE;
-	if (SYMBOL(node_remap_start_pfn) == NOT_FOUND_SYMBOL)
-		return TRUE;
-	if (ARRAY_LENGTH(node_remap_start_pfn) == NOT_FOUND_STRUCTURE)
-		return TRUE;
-
-	n = ARRAY_LENGTH(node_remap_start_pfn);
-	remap_start_vaddr = calloc(3 * n, sizeof(unsigned long));
-	if (!remap_start_vaddr) {
-		ERRMSG("Can't allocate remap allocator info.\n");
-		return FALSE;
-	}
-	remap_end_vaddr = remap_start_vaddr + n;
-	remap_start_pfn = remap_end_vaddr + n;
-
-	if (!readmem(VADDR, SYMBOL(node_remap_start_vaddr), remap_start_vaddr,
-		     n * sizeof(unsigned long))) {
-		ERRMSG("Can't get node_remap_start_vaddr.\n");
-		return FALSE;
-	}
-	if (!readmem(VADDR, SYMBOL(node_remap_end_vaddr), remap_end_vaddr,
-		     n * sizeof(unsigned long))) {
-		ERRMSG("Can't get node_remap_end_vaddr.\n");
-		return FALSE;
-	}
-	if (!readmem(VADDR, SYMBOL(node_remap_start_pfn), remap_start_pfn,
-		     n * sizeof(unsigned long))) {
-		ERRMSG("Can't get node_remap_start_pfn.\n");
-		return FALSE;
-	}
-
-	max_numnodes = n;
-	return TRUE;
-}
-
 int
 get_machdep_info_x86(void)
 {
@@ -100,9 +52,6 @@ get_machdep_info_x86(void)
 	}
 	info->kernel_start = SYMBOL(_stext) & ~KVBASE_MASK;
 	DEBUG_MSG("kernel_start : %lx\n", info->kernel_start);
-
-	if (!remap_init())
-		return FALSE;
 
 	/*
 	 * Get vmalloc_start value from either vmap_area_list or vmlist.
@@ -161,118 +110,6 @@ get_versiondep_info_x86(void)
 		info->section_size_bits = _SECTION_SIZE_BITS;
 
 	return TRUE;
-}
-
-unsigned long long
-vtop_x86_remap(unsigned long vaddr)
-{
-	int i;
-	for (i = 0; i < max_numnodes; ++i)
-		if (vaddr >= remap_start_vaddr[i] &&
-		    vaddr < remap_end_vaddr[i])
-			return pfn_to_paddr(remap_start_pfn[i]) +
-				vaddr - remap_start_vaddr[i];
-	return NOT_PADDR;
-}
-
-unsigned long long
-vtop_x86_PAE(unsigned long vaddr)
-{
-	unsigned long long page_dir, pgd_pte, pmd_paddr, pmd_pte;
-	unsigned long long pte_paddr, pte;
-
-	if (SYMBOL(swapper_pg_dir) == NOT_FOUND_SYMBOL) {
-		ERRMSG("Can't get the symbol of swapper_pg_dir.\n");
-		return NOT_PADDR;
-	}
-
-	page_dir  = SYMBOL(swapper_pg_dir);
-	page_dir += pgd_index_PAE(vaddr) * sizeof(unsigned long long);
-	if (!readmem(VADDR, page_dir, &pgd_pte, sizeof(pgd_pte))) {
-		ERRMSG("Can't get pgd_pte (page_dir:%llx).\n", page_dir);
-		return NOT_PADDR;
-	}
-	if (!(pgd_pte & _PAGE_PRESENT))
-		return NOT_PADDR;
-
-	if (info->vaddr_for_vtop == vaddr)
-		MSG("  PGD : %16llx => %16llx\n", page_dir, pgd_pte);
-
-	pmd_paddr  = pgd_pte & ENTRY_MASK;
-	pmd_paddr += pmd_index(vaddr) * sizeof(unsigned long long);
-	if (!readmem(PADDR, pmd_paddr, &pmd_pte, sizeof(pmd_pte))) {
-		ERRMSG("Can't get pmd_pte (pmd_paddr:%llx).\n", pmd_paddr);
-		return NOT_PADDR;
-	}
-	if (!(pmd_pte & _PAGE_PRESENT))
-		return NOT_PADDR;
-
-	if (info->vaddr_for_vtop == vaddr)
-		MSG("  PMD : %16llx => %16llx\n", pmd_paddr, pmd_pte);
-
-	if (pmd_pte & _PAGE_PSE)
-		return (pmd_pte & ENTRY_MASK) + (vaddr & ((1UL << PMD_SHIFT) - 1));
-
-	pte_paddr  = pmd_pte & ENTRY_MASK;
-	pte_paddr += pte_index(vaddr) * sizeof(unsigned long long);
-	if (!readmem(PADDR, pte_paddr, &pte, sizeof(pte)))
-		return NOT_PADDR;
-
-	if (!(pte & _PAGE_PRESENT))
-		return NOT_PADDR;
-
-	if (info->vaddr_for_vtop == vaddr)
-		MSG("  PTE : %16llx => %16llx\n", pte_paddr, pte);
-
-	return (pte & ENTRY_MASK) + (vaddr & ((1UL << PTE_SHIFT) - 1));
-}
-
-int
-is_vmalloc_addr_x86(unsigned long vaddr)
-{
-	return (info->vmalloc_start && vaddr >= info->vmalloc_start);
-}
-
-unsigned long long
-vaddr_to_paddr_x86(unsigned long vaddr)
-{
-	unsigned long long paddr;
-
-	if ((paddr = vtop_x86_remap(vaddr)) != NOT_PADDR) {
-		if (is_xen_memory())
-			paddr = ptom_xen(paddr);
-		return paddr;
-	}
-
-	if ((paddr = vaddr_to_paddr_general(vaddr)) != NOT_PADDR)
-		return paddr;
-
-	if (((SYMBOL(vmap_area_list) == NOT_FOUND_SYMBOL)
-	     || (OFFSET(vmap_area.va_start) == NOT_FOUND_STRUCTURE)
-	     || (OFFSET(vmap_area.list) == NOT_FOUND_STRUCTURE))
-	    && ((SYMBOL(vmlist) == NOT_FOUND_SYMBOL)
-		|| (OFFSET(vm_struct.addr) == NOT_FOUND_STRUCTURE))) {
-		ERRMSG("Can't get necessary information for vmalloc translation.\n");
-		return NOT_PADDR;
-	}
-	if (!is_vmalloc_addr_x86(vaddr)) {
-		paddr = vaddr - info->kernel_start;
-		if (is_xen_memory())
-			paddr = ptom_xen(paddr);
-		return paddr;
-	}
-
-	if (vt.mem_flags & MEMORY_X86_PAE) {
-		paddr = vtop_x86_PAE(vaddr);
-	} else {
-		/*
-		 * TODO: Support vmalloc translation of not-PAE kernel.
-		 */
-		ERRMSG("This makedumpfile does not support vmalloc translation of not-PAE kernel.\n");
-		return NOT_PADDR;
-	}
-
-	return paddr;
 }
 
 /*

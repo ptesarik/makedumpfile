@@ -90,39 +90,4 @@ get_machdep_info_ppc(void)
 	return TRUE;
 }
 
-int
-is_vmalloc_addr_ppc(unsigned long vaddr)
-{
-	return (info->vmalloc_start && vaddr >= info->vmalloc_start);
-}
-
-unsigned long long
-vaddr_to_paddr_ppc(unsigned long vaddr)
-{
-	unsigned long *pgd, *pmd;
-	unsigned long long pte;
-	unsigned long long paddr;
-
-	paddr = vaddr_to_paddr_general(vaddr);
-	if (paddr != NOT_PADDR)
-		return paddr;
-
-	if (((SYMBOL(vmap_area_list) == NOT_FOUND_SYMBOL)
-	     || (OFFSET(vmap_area.va_start) == NOT_FOUND_STRUCTURE)
-	     || (OFFSET(vmap_area.list) == NOT_FOUND_STRUCTURE))
-	    && ((SYMBOL(vmlist) == NOT_FOUND_SYMBOL)
-		|| (OFFSET(vm_struct.addr) == NOT_FOUND_STRUCTURE))) {
-		ERRMSG("Can't get necessary information for vmalloc translation.\n");
-		return NOT_PADDR;
-	}
-	if (!is_vmalloc_addr_ppc(vaddr))
-		return (vaddr - info->kernel_start);
-
-	/*
-	 * TODO: Support vmalloc translation.
-	 */
-	ERRMSG("This makedumpfile does not support vmalloc translation.\n");
-	return NOT_PADDR;
-}
-
 #endif /* powerpc32 */

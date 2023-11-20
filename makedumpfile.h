@@ -1127,7 +1127,6 @@ unsigned long get_kaslr_offset_general(unsigned long vaddr);
 #ifdef __aarch64__
 int get_phys_base_arm64(void);
 int get_machdep_info_arm64(void);
-unsigned long long vaddr_to_paddr_arm64(unsigned long vaddr);
 int get_versiondep_info_arm64(void);
 int get_xen_basic_info_arm64(void);
 int get_xen_info_arm64(void);
@@ -1148,7 +1147,6 @@ int get_xen_info_arm64(void);
 #ifdef __arm__
 int get_phys_base_arm(void);
 int get_machdep_info_arm(void);
-unsigned long long vaddr_to_paddr_arm(unsigned long vaddr);
 #define find_vmemmap()		stub_false()
 #define get_phys_base()		get_phys_base_arm()
 #define get_machdep_info()	get_machdep_info_arm()
@@ -1162,7 +1160,6 @@ unsigned long long vaddr_to_paddr_arm(unsigned long vaddr);
 #ifdef __x86__
 int get_machdep_info_x86(void);
 int get_versiondep_info_x86(void);
-unsigned long long vaddr_to_paddr_x86(unsigned long vaddr);
 #define find_vmemmap()		stub_false()
 #define get_phys_base()		stub_true()
 #define get_machdep_info()	get_machdep_info_x86()
@@ -1193,7 +1190,6 @@ unsigned long long vtop4_x86_64_pagetable(unsigned long vaddr, unsigned long pag
 #ifdef __powerpc64__ /* powerpc64 */
 int get_machdep_info_ppc64(void);
 int get_versiondep_info_ppc64(void);
-unsigned long long vaddr_to_paddr_ppc64(unsigned long vaddr);
 int arch_crashkernel_mem_size_ppc64(void);
 #define find_vmemmap()		stub_false()
 #define get_phys_base()		stub_true()
@@ -1207,7 +1203,6 @@ int arch_crashkernel_mem_size_ppc64(void);
 
 #ifdef __powerpc32__ /* powerpc32 */
 int get_machdep_info_ppc(void);
-unsigned long long vaddr_to_paddr_ppc(unsigned long vaddr);
 #define find_vmemmap()		stub_false()
 #define get_phys_base()		stub_true()
 #define get_machdep_info()	get_machdep_info_ppc()
@@ -1220,7 +1215,6 @@ unsigned long long vaddr_to_paddr_ppc(unsigned long vaddr);
 
 #ifdef __s390x__ /* s390x */
 int get_machdep_info_s390x(void);
-unsigned long long vaddr_to_paddr_s390x(unsigned long vaddr);
 int is_iomem_phys_addr_s390x(unsigned long addr);
 #define find_vmemmap()		stub_false()
 #define get_phys_base()		stub_true()
@@ -1235,7 +1229,6 @@ int is_iomem_phys_addr_s390x(unsigned long addr);
 #ifdef __ia64__ /* ia64 */
 int get_phys_base_ia64(void);
 int get_machdep_info_ia64(void);
-unsigned long long vaddr_to_paddr_ia64(unsigned long vaddr);
 #define find_vmemmap()		stub_false()
 #define get_machdep_info()	get_machdep_info_ia64()
 #define get_phys_base()		get_phys_base_ia64()
@@ -1250,7 +1243,6 @@ unsigned long long vaddr_to_paddr_ia64(unsigned long vaddr);
 #ifdef __sparc64__ /* sparc64 */
 int get_versiondep_info_sparc64(void);
 int get_phys_base_sparc64(void);
-unsigned long long vaddr_to_paddr_sparc64(unsigned long vaddr);
 #define find_vmemmap()          stub_false()
 #define get_machdep_info()      TRUE
 #define get_phys_base()         get_phys_base_sparc64()

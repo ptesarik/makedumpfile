@@ -516,28 +516,6 @@ page_is_fractional(off_t page_offset)
 	return FALSE;
 }
 
-unsigned long long
-vaddr_to_paddr_general(unsigned long long vaddr)
-{
-	int i;
-	unsigned long long paddr = NOT_PADDR;
-	struct pt_load_segment *pls;
-
-	if (pt_loads == NULL)
-		return NOT_PADDR;
-
-	for (i = 0; i < num_pt_loads; i++) {
-		pls = &pt_loads[i];
-		if ((vaddr >= pls->virt_start)
-		    && (vaddr < pls->virt_end)) {
-			paddr = (off_t)(vaddr - pls->virt_start) +
-				pls->phys_start;
-			break;
-		}
-	}
-	return paddr;
-}
-
 /*
  * This function is slow because it doesn't use the memory.
  * It is useful at few calls like get_str_osrelease_from_vmlinux().
