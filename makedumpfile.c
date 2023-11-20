@@ -11163,44 +11163,9 @@ static int get_page_offset(void)
 	return TRUE;
 }
 
-/* Returns the physical address of start of crash notes buffer for a kernel. */
-static int get_sys_kernel_vmcoreinfo(uint64_t *addr, uint64_t *len)
-{
-	char line[BUFSIZE_FGETS];
-	int count;
-	FILE *fp;
-	unsigned long long temp, temp2;
-
-	*addr = 0;
-	*len = 0;
-
-	if (!(fp = fopen("/sys/kernel/vmcoreinfo", "r")))
-		return FALSE;
-
-	if (!fgets(line, sizeof(line), fp)) {
-		ERRMSG("Cannot parse %s: %s, fgets failed.\n",
-		       "/sys/kernel/vmcoreinfo", strerror(errno));
-		return FALSE;
-	}
-	count = sscanf(line, "%Lx %Lx", &temp, &temp2);
-	if (count != 2) {
-		ERRMSG("Cannot parse %s: %s, sscanf failed.\n",
-		       "/sys/kernel/vmcoreinfo", strerror(errno));
-		return FALSE;
-	}
-
-	*addr = (uint64_t) temp;
-	*len = (uint64_t) temp2;
-
-	fclose(fp);
-	return TRUE;
-}
-
 int show_mem_usage(void)
 {
-	uint64_t vmcoreinfo_addr, vmcoreinfo_len;
 	struct cycle cycle = {0};
-	int vmcoreinfo = FALSE;
 
 	if (!is_crashkernel_mem_reserved()) {
 		ERRMSG("No memory is reserved for crashkernel!\n");
@@ -11215,33 +11180,12 @@ int show_mem_usage(void)
 	if (!get_elf_info(info->fd_memory, info->name_memory))
 		return FALSE;
 
-	/*
-	 * /proc/kcore on Linux 4.19 and later kernels have vmcoreinfo note in
-	 * NOTE segment.  See commit 23c85094fe18.
-	 */
-	if (has_vmcoreinfo()) {
-		off_t offset;
-		unsigned long size;
-
-		get_vmcoreinfo(&offset, &size);
-		vmcoreinfo = read_vmcoreinfo();
-		DEBUG_MSG("Read vmcoreinfo from NOTE segment: %d\n", vmcoreinfo);
-	}
-
 	if (!get_page_offset())
 		return FALSE;
 
 	/* paddr_to_vaddr() on arm64 needs phys_base. */
 	if (!get_phys_base())
 		return FALSE;
-
-	if (!vmcoreinfo) {
-		if (!get_sys_kernel_vmcoreinfo(&vmcoreinfo_addr, &vmcoreinfo_len))
-			return FALSE;
-
-		if (!set_kcore_vmcoreinfo(vmcoreinfo_addr, vmcoreinfo_len))
-			return FALSE;
-	}
 
 	if (!initial())
 		return FALSE;
