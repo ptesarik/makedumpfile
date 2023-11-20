@@ -228,32 +228,13 @@ xen_vaddr_to_maddr(unsigned long vaddr)
 /*
  * Translate a domain-0's physical address to machine address.
  */
-unsigned long long
+static unsigned long long
 ptom_xen(unsigned long long paddr)
 {
-	unsigned long mfn;
-	unsigned long long maddr;
-	mdf_pfn_t pfn;
-	unsigned long long mfn_idx, frame_idx;
-
-	pfn = paddr_to_pfn(paddr);
-	mfn_idx   = pfn / MFNS_PER_FRAME;
-	frame_idx = pfn % MFNS_PER_FRAME;
-
-	if (mfn_idx >= info->p2m_frames) {
-		ERRMSG("Invalid mfn_idx(%llu).\n", mfn_idx);
-		return NOT_PADDR;
-	}
-	maddr = pfn_to_paddr(info->p2m_mfn_frame_list[mfn_idx])
-		+ sizeof(unsigned long) * frame_idx;
-	if (!readmem(PADDR, maddr, &mfn, sizeof(mfn))) {
-		ERRMSG("Can't get mfn.\n");
-		return NOT_PADDR;
-	}
-	maddr  = pfn_to_paddr(mfn);
-	maddr |= PAGEOFFSET(paddr);
-
-	return maddr;
+	info->xen_p2m_xlat.base.addr = paddr;
+	return addrxlat_walk(&info->xen_p2m_xlat) == ADDRXLAT_OK
+		? info->xen_p2m_xlat.base.addr
+		: NOT_PADDR;
 }
 
 /*
@@ -3775,6 +3756,19 @@ initial(void)
 		debug_info = TRUE;
 	}
 
+	if (is_xen_memory()) {
+		if (kdump_get_addrxlat(info->ctx_memory,
+				       &info->xen_p2m_xlat.ctx,
+				       &info->xen_p2m_xlat.sys) != KDUMP_OK) {
+			ERRMSG("Can't set up address translation: %s.\n",
+			       kdump_get_err(info->ctx_memory));
+			return FALSE;
+		}
+		info->xen_p2m_xlat.meth = addrxlat_sys_get_meth(
+			info->xen_p2m_xlat.sys,
+			ADDRXLAT_SYS_METH_KPHYS_MACHPHYS);
+	}
+
 	if (!get_value_for_old_linux())
 		return FALSE;
 
@@ -4184,8 +4178,9 @@ clear_bit_on_2nd_bitmap_for_kernel(mdf_pfn_t pfn, struct cycle *cycle)
 	if (is_xen_memory()) {
 		maddr = ptom_xen(pfn_to_paddr(pfn));
 		if (maddr == NOT_PADDR) {
-			ERRMSG("Can't convert a physical address(%llx) to machine address.\n",
-			    pfn_to_paddr(pfn));
+			ERRMSG("Can't convert a physical address(%llx) to machine address: %s.\n",
+			       pfn_to_paddr(pfn), kdump_get_err(info->ctx_memory));
+
 			return FALSE;
 		}
 		pfn = paddr_to_pfn(maddr);
@@ -4207,8 +4202,9 @@ set_bit_on_2nd_bitmap_for_kernel(mdf_pfn_t pfn, struct cycle *cycle)
 	if (is_xen_memory()) {
 		maddr = ptom_xen(pfn_to_paddr(pfn));
 		if (maddr == NOT_PADDR) {
-			ERRMSG("Can't convert a physical address(%llx) to machine address.\n",
-			    pfn_to_paddr(pfn));
+			ERRMSG("Can't convert a physical address(%llx) to machine address: %s.\n",
+			       pfn_to_paddr(pfn), kdump_get_err(info->ctx_memory));
+
 			return FALSE;
 		}
 		pfn = paddr_to_pfn(maddr);
@@ -5734,8 +5730,9 @@ __exclude_unnecessary_pages(unsigned long mem_map,
 		if (is_xen_memory()) {
 			maddr = ptom_xen(pfn_to_paddr(pfn));
 			if (maddr == NOT_PADDR) {
-				ERRMSG("Can't convert a physical address(%llx) to machine address.\n",
-				    pfn_to_paddr(pfn));
+				ERRMSG("Can't convert a physical address(%llx) to machine address: %s.\n",
+				       pfn_to_paddr(pfn), kdump_get_err(info->ctx_memory));
+
 				free(page_cache);
 				return FALSE;
 			}
@@ -8820,6 +8817,10 @@ close_vmcoreinfo(void)
 void
 close_dump_memory(void)
 {
+	if (info->xen_p2m_xlat.sys)
+		addrxlat_sys_decref(info->xen_p2m_xlat.sys);
+	if (info->xen_p2m_xlat.ctx)
+		addrxlat_ctx_decref(info->xen_p2m_xlat.ctx);
 	if (info->ctx_memory) {
 		kdump_free(info->ctx_memory);
 		info->ctx_memory = NULL;
