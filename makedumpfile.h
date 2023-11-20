@@ -125,8 +125,6 @@ int get_mem_type(void);
 /*
  * Memory flags
  */
-#define MEMORY_PAGETABLE_4L	(1 << 0)
-#define MEMORY_PAGETABLE_3L	(1 << 1)
 #define MEMORY_X86_PAE		(1 << 2)
 
 /*
@@ -511,8 +509,6 @@ do { \
 #define STR_NUMBER(X)		"NUMBER("X")="
 #define STR_SRCFILE(X)		"SRCFILE("X")="
 #define STR_CONFIG_X86_PAE	"CONFIG_X86_PAE=y"
-#define STR_CONFIG_PGTABLE_4	"CONFIG_PGTABLE_4=y"
-#define STR_CONFIG_PGTABLE_3	"CONFIG_PGTABLE_3=y"
 #define STR_KERNELOFFSET	"KERNELOFFSET="
 
 /*

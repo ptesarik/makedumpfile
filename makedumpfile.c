@@ -1989,14 +1989,6 @@ read_vmcoreinfo_basic_info(void)
 		if (strncmp(buf, STR_CONFIG_X86_PAE,
 		    strlen(STR_CONFIG_X86_PAE)) == 0)
 			vt.mem_flags |= MEMORY_X86_PAE;
-
-		if (strncmp(buf, STR_CONFIG_PGTABLE_3,
-		    strlen(STR_CONFIG_PGTABLE_3)) == 0)
-			vt.mem_flags |= MEMORY_PAGETABLE_3L;
-
-		if (strncmp(buf, STR_CONFIG_PGTABLE_4,
-		    strlen(STR_CONFIG_PGTABLE_4)) == 0)
-			vt.mem_flags |= MEMORY_PAGETABLE_4L;
 	}
 	DEBUG_MSG("\n");
 
