@@ -994,15 +994,6 @@ has_vmcoreinfo_xen(void)
 }
 
 void
-get_vmcoreinfo_xen(off_t *offset, unsigned long *size)
-{
-	if (offset)
-		*offset = offset_vmcoreinfo_xen;
-	if (size)
-		*size   = size_vmcoreinfo_xen;
-}
-
-void
 get_xen_crash_info(off_t *offset, unsigned long *size)
 {
 	if (offset)
