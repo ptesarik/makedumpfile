@@ -1662,13 +1662,13 @@ write_vmcoreinfo_data(void)
 	/*
 	 * write 1st kernel's OSRELEASE
 	 */
-	fprintf(info->file_vmcoreinfo, "%s%s\n", STR_OSRELEASE,
+	fprintf(info->file_vmcoreinfo, "%s=%s\n", STR_OSRELEASE,
 	    info->release);
 
 	/*
 	 * write 1st kernel's PAGESIZE
 	 */
-	fprintf(info->file_vmcoreinfo, "%s%ld\n", STR_PAGESIZE,
+	fprintf(info->file_vmcoreinfo, "%s=%ld\n", STR_PAGESIZE,
 	    info->page_size);
 
 	/*
@@ -1868,10 +1868,10 @@ write_vmcoreinfo_data(void)
 #endif
 
 	if (info->phys_base)
-		fprintf(info->file_vmcoreinfo, "%s%lu\n", STR_NUMBER("phys_base"),
+		fprintf(info->file_vmcoreinfo, "%s=%lu\n", STR_NUMBER("phys_base"),
 			info->phys_base);
 	if (info->kaslr_offset)
-		fprintf(info->file_vmcoreinfo, "%s%lx\n", STR_KERNELOFFSET,
+		fprintf(info->file_vmcoreinfo, "%s=%lx\n", STR_KERNELOFFSET,
 			info->kaslr_offset);
 }
 
@@ -1911,70 +1911,78 @@ generate_vmcoreinfo(void)
 	return TRUE;
 }
 
+static int
+vmcoreinfo_fail(const char *what)
+{
+	ERRMSG("Cannot get %s from VMCOREINFO: %s\n",
+	       what, kdump_get_err(info->ctx_vmcoreinfo));
+	return FALSE;
+}
+
 int
 read_vmcoreinfo_basic_info(void)
 {
 	time_t tv_sec = 0;
 	long page_size = FALSE;
-	char buf[BUFSIZE_FGETS], *endp;
-	unsigned int get_release = FALSE, i;
+	unsigned int get_release = FALSE;
+	char *val;
+	char *endp;
+	kdump_status status;
 
-	if (fseek(info->file_vmcoreinfo, 0, SEEK_SET) < 0) {
-		ERRMSG("Can't seek the vmcoreinfo file(%s). %s\n",
-		    info->name_vmcoreinfo, strerror(errno));
-		return FALSE;
-	}
+	status = kdump_vmcoreinfo_line(info->ctx_vmcoreinfo,
+				       STR_OSRELEASE, &val);
+	if (status == KDUMP_OK) {
+		get_release = TRUE;
+		/* if the release have been stored, skip this time. */
+		if (!strlen(info->release))
+			strcpy(info->release, val);
+		free(val);
+	} else if (status != KDUMP_ERR_NODATA)
+		return vmcoreinfo_fail(STR_OSRELEASE);
 
-	DEBUG_MSG("VMCOREINFO   :\n");
-	while (fgets(buf, BUFSIZE_FGETS, info->file_vmcoreinfo)) {
-		i = strlen(buf);
-		if (!i)
-			break;
-		if (buf[i - 1] == '\n')
-			buf[i - 1] = '\0';
+	status = kdump_vmcoreinfo_line(info->ctx_vmcoreinfo,
+				       STR_PAGESIZE, &val);
+	if (status == KDUMP_OK) {
+		page_size = strtol(val, &endp, 10);
+		if ((!page_size || page_size == LONG_MAX)
+		    || strlen(endp) != 0
+		    || !set_page_size(page_size)) {
+			ERRMSG("Invalid vmcoreinfo data: %s=%s\n",
+			       STR_PAGESIZE, val);
+			free(val);
+			return FALSE;
+		}
+		free(val);
+	} else if (status != KDUMP_ERR_NODATA)
+		return vmcoreinfo_fail(STR_PAGESIZE);
 
-		DEBUG_MSG("  %s\n", buf);
-		if (strncmp(buf, STR_OSRELEASE, strlen(STR_OSRELEASE)) == 0) {
-			get_release = TRUE;
-			/* if the release have been stored, skip this time. */
-			if (strlen(info->release))
-				continue;
-			memcpy(info->release, buf + strlen(STR_OSRELEASE),
-			       STRLEN_OSRELEASE-1);
-			info->release[STRLEN_OSRELEASE-1] = '\0';
+	status = kdump_vmcoreinfo_line(info->ctx_vmcoreinfo,
+				       STR_CRASHTIME, &val);
+	if (status == KDUMP_OK) {
+		tv_sec = strtol(val, &endp, 10);
+		if ((!tv_sec || tv_sec == LONG_MAX)
+		    || strlen(endp) != 0) {
+			free(val);
+			ERRMSG("Invalid vmcoreinfo data: %s=%s\n",
+			       STR_CRASHTIME, val);
+			return FALSE;
 		}
-		if (strncmp(buf, STR_PAGESIZE, strlen(STR_PAGESIZE)) == 0) {
-			page_size = strtol(buf+strlen(STR_PAGESIZE),&endp,10);
-			if ((!page_size || page_size == LONG_MAX)
-			    || strlen(endp) != 0) {
-				ERRMSG("Invalid data in %s: %s",
-				    info->name_vmcoreinfo, buf);
-				return FALSE;
-			}
-			if (!set_page_size(page_size)) {
-				ERRMSG("Invalid data in %s: %s",
-				    info->name_vmcoreinfo, buf);
-				return FALSE;
-			}
-		}
-		if (strncmp(buf, STR_CRASHTIME, strlen(STR_CRASHTIME)) == 0) {
-			tv_sec = strtol(buf+strlen(STR_CRASHTIME),&endp,10);
-			if ((!tv_sec || tv_sec == LONG_MAX)
-			    || strlen(endp) != 0) {
-				ERRMSG("Invalid data in %s: %s",
-				    info->name_vmcoreinfo, buf);
-				return FALSE;
-			}
-			info->timestamp.tv_sec = tv_sec;
-		}
-		if (strncmp(buf, STR_CONFIG_X86_PAE,
-		    strlen(STR_CONFIG_X86_PAE)) == 0)
+		info->timestamp.tv_sec = tv_sec;
+		free(val);
+	} else if (status != KDUMP_ERR_NODATA)
+		return vmcoreinfo_fail(STR_CRASHTIME);
+
+	status = kdump_vmcoreinfo_line(info->ctx_vmcoreinfo,
+				       STR_CONFIG_X86_PAE, &val);
+	if (status == KDUMP_OK) {
+		if (!strcmp(val, "y"))
 			vt.mem_flags |= MEMORY_X86_PAE;
-	}
-	DEBUG_MSG("\n");
+		free(val);
+	} else if (status != KDUMP_ERR_NODATA)
+		return vmcoreinfo_fail(STR_CONFIG_X86_PAE);
 
 	if (!get_release || !info->page_size) {
-		ERRMSG("Invalid format in %s", info->name_vmcoreinfo);
+		ERRMSG("Invalid vmcoreinfo format\n");
 		return FALSE;
 	}
 	return TRUE;
@@ -1983,32 +1991,17 @@ read_vmcoreinfo_basic_info(void)
 unsigned long
 read_vmcoreinfo_symbol(char *str_symbol)
 {
-	unsigned long symbol = NOT_FOUND_SYMBOL;
-	char buf[BUFSIZE_FGETS], *endp;
-	unsigned int i;
+	kdump_addr_t symbol;
+	kdump_status status;
 
-	if (fseek(info->file_vmcoreinfo, 0, SEEK_SET) < 0) {
-		ERRMSG("Can't seek the vmcoreinfo file(%s). %s\n",
-		    info->name_vmcoreinfo, strerror(errno));
+	status = kdump_vmcoreinfo_symbol(info->ctx_vmcoreinfo, str_symbol,
+					 &symbol);
+	if (status == KDUMP_ERR_NODATA)
+		return NOT_FOUND_SYMBOL;
+	if (status != KDUMP_OK) {
+		ERRMSG("Can't get the value of symbol %s: %s\n",
+		       str_symbol, kdump_get_err(info->ctx_memory));
 		return INVALID_SYMBOL_DATA;
-	}
-
-	while (fgets(buf, BUFSIZE_FGETS, info->file_vmcoreinfo)) {
-		i = strlen(buf);
-		if (!i)
-			break;
-		if (buf[i - 1] == '\n')
-			buf[i - 1] = '\0';
-		if (strncmp(buf, str_symbol, strlen(str_symbol)) == 0) {
-			symbol = strtoul(buf + strlen(str_symbol), &endp, 16);
-			if ((!symbol || symbol == ULONG_MAX)
-			    || strlen(endp) != 0) {
-				ERRMSG("Invalid data in %s: %s",
-				    info->name_vmcoreinfo, buf);
-				return INVALID_SYMBOL_DATA;
-			}
-			break;
-		}
 	}
 	return symbol;
 }
@@ -2016,74 +2009,64 @@ read_vmcoreinfo_symbol(char *str_symbol)
 unsigned long
 read_vmcoreinfo_ulong(char *str_structure)
 {
-	long data = NOT_FOUND_LONG_VALUE;
-	char buf[BUFSIZE_FGETS], *endp;
-	unsigned int i;
+	char *val;
+	char *endp;
+	long data;
+	kdump_status status;
 
-	if (fseek(info->file_vmcoreinfo, 0, SEEK_SET) < 0) {
-		ERRMSG("Can't seek the vmcoreinfo file(%s). %s\n",
-		    info->name_vmcoreinfo, strerror(errno));
+	status = kdump_vmcoreinfo_line(info->ctx_vmcoreinfo, str_structure,
+				       &val);
+	if (status == KDUMP_ERR_NODATA)
+		return NOT_FOUND_LONG_VALUE;
+	if (status != KDUMP_OK)
+		return INVALID_STRUCTURE_DATA;
+
+	data = strtoul(val, &endp, 10);
+	if (strlen(endp) != 0)
+		data = strtoul(val, &endp, 16);
+	if ((data == LONG_MAX) || strlen(endp) != 0) {
+		ERRMSG("Invalid VMCOREINFO data: %s=%s\n",
+		       str_structure, val);
+		free(val);
 		return INVALID_STRUCTURE_DATA;
 	}
-
-	while (fgets(buf, BUFSIZE_FGETS, info->file_vmcoreinfo)) {
-		i = strlen(buf);
-		if (!i)
-			break;
-		if (buf[i - 1] == '\n')
-			buf[i - 1] = '\0';
-		if (strncmp(buf, str_structure, strlen(str_structure)) == 0) {
-			data = strtoul(buf + strlen(str_structure), &endp, 10);
-			if (strlen(endp) != 0)
-				data = strtoul(buf + strlen(str_structure), &endp, 16);
-			if ((data == LONG_MAX) || strlen(endp) != 0) {
-				ERRMSG("Invalid data in %s: %s",
-				    info->name_vmcoreinfo, buf);
-				return INVALID_STRUCTURE_DATA;
-			}
-			break;
-		}
-	}
+	free(val);
 	return data;
 }
 
 long
 read_vmcoreinfo_long(char *str_structure)
 {
-	long data = NOT_FOUND_LONG_VALUE;
-	char buf[BUFSIZE_FGETS], *endp;
-	unsigned int i;
+	char *val;
+	char *endp;
+	long data;
+	kdump_status status;
 
-	if (fseek(info->file_vmcoreinfo, 0, SEEK_SET) < 0) {
-		ERRMSG("Can't seek the vmcoreinfo file(%s). %s\n",
-		    info->name_vmcoreinfo, strerror(errno));
+	status = kdump_vmcoreinfo_line(info->ctx_vmcoreinfo, str_structure,
+				       &val);
+	if (status == KDUMP_ERR_NODATA)
+		return NOT_FOUND_LONG_VALUE;
+	if (status != KDUMP_OK)
+		return INVALID_STRUCTURE_DATA;
+
+	data = strtol(val, &endp, 10);
+	if (strlen(endp) != 0)
+		data = strtol(val, &endp, 16);
+	if ((data == LONG_MAX) || strlen(endp) != 0) {
+		ERRMSG("Invalid VMCOREINFO data: %s=%s\n",
+		       str_structure, val);
+		free(val);
 		return INVALID_STRUCTURE_DATA;
 	}
-
-	while (fgets(buf, BUFSIZE_FGETS, info->file_vmcoreinfo)) {
-		i = strlen(buf);
-		if (!i)
-			break;
-		if (buf[i - 1] == '\n')
-			buf[i - 1] = '\0';
-		if (strncmp(buf, str_structure, strlen(str_structure)) == 0) {
-			data = strtol(buf + strlen(str_structure), &endp, 10);
-			if (strlen(endp) != 0)
-				data = strtol(buf + strlen(str_structure), &endp, 16);
-			if ((data == LONG_MAX) || strlen(endp) != 0) {
-				ERRMSG("Invalid data in %s: %s",
-				    info->name_vmcoreinfo, buf);
-				return INVALID_STRUCTURE_DATA;
-			}
-			break;
-		}
-	}
+	free(val);
 	return data;
 }
 
 int
 read_vmcoreinfo(void)
 {
+	info->ctx_vmcoreinfo = info->ctx_memory;
+
 	if (!read_vmcoreinfo_basic_info())
 		return FALSE;
 
@@ -2292,96 +2275,95 @@ read_vmcoreinfo(void)
 	return TRUE;
 }
 
-/*
- * Extract vmcoreinfo from /proc/vmcore and output it to /tmp/vmcoreinfo.tmp.
- */
-int
-copy_vmcoreinfo(off_t offset, unsigned long size)
+static int
+use_file_vmcoreinfo(const char *key)
 {
-	const off_t failed = (off_t)-1;
-	int ret = FALSE;
-	char *buf;
-	int fd;
+	char *buf, *p;
+	size_t buflen, usedlen, rdlen;
+	kdump_attr_t attr;
+	kdump_status status;
 
-	if (!offset || !size)
+	attr.type = KDUMP_STRING;
+	status = kdump_get_typed_attr(info->ctx_vmcoreinfo, key, &attr);
+	if (status == KDUMP_OK) {
+		char *newbuf = strdup(attr.val.string);
+		if (!newbuf) {
+			ERRMSG("Can't save old vmcoreinfo\n");
+			return FALSE;
+		}
+		info->orig_vmcoreinfo = newbuf;
+	} else if (status != KDUMP_ERR_NODATA) {
+		ERRMSG("Can't get old vmcoreinfo value: %s\n",
+		       kdump_get_err(info->ctx_vmcoreinfo));
 		return FALSE;
+	}
 
-	buf = malloc(size);
-	if (!buf) {
-		ERRMSG("Can't allocate buffer for vmcoreinfo. %s\n",
-		    strerror(errno));
+	buf = p = NULL;
+	buflen = rdlen = 0;
+	for (;;) {
+		p += rdlen;
+		usedlen = p - buf;
+		if (buflen - usedlen < BUFSIZE) {
+			char *newbuf = realloc(buf, buflen += BUFSIZE);
+			if (!newbuf) {
+				ERRMSG("Can't allocate buffer for vmcoreinfo file (%s): %s\n",
+				       info->name_vmcoreinfo, strerror(errno));
+				free(buf);
+				return FALSE;
+			}
+			p = newbuf + usedlen;
+			buf = newbuf;
+		}
+
+		rdlen = fread(p, 1, BUFSIZE, info->file_vmcoreinfo);
+		if (!rdlen)
+			break;
+		p += rdlen;
+	}
+
+	/* rdlen was 0, so there are at least BUFSIZE bytes available */
+	if (p)
+		*p = 0;
+
+	if (ferror(info->file_vmcoreinfo)) {
+		ERRMSG("Can't read vmcoreinfo file (%s): %s\n",
+		       info->name_vmcoreinfo, strerror(errno));
+		free(buf);
 		return FALSE;
 	}
 
-	if ((fd = mkstemp(info->name_vmcoreinfo)) < 0) {
-		ERRMSG("Can't open the vmcoreinfo file(%s). %s\n",
-		    info->name_vmcoreinfo, strerror(errno));
-		goto out;
+	attr.val.string = buf;
+	status = kdump_set_attr(info->ctx_vmcoreinfo, key, &attr);
+	if (status != KDUMP_OK) {
+		ERRMSG("Can't set vmcoreinfo value: %s\n",
+		       kdump_get_err(info->ctx_vmcoreinfo));
+		free(buf);
+		return FALSE;
 	}
-	if (lseek(info->fd_memory, offset, SEEK_SET) == failed) {
-		ERRMSG("Can't seek the dump memory(%s). %s\n",
-		    info->name_memory, strerror(errno));
-		goto out;
-	}
-	if (read(info->fd_memory, buf, size) != size) {
-		ERRMSG("Can't read the dump memory(%s). %s\n",
-		    info->name_memory, strerror(errno));
-		goto out;
-	}
-	if (write(fd, buf, size) != size) {
-		ERRMSG("Can't write the vmcoreinfo file(%s). %s\n",
-		    info->name_vmcoreinfo, strerror(errno));
-		goto out;
-	}
-	if (close(fd) < 0) {
-		ERRMSG("Can't close the vmcoreinfo file(%s). %s\n",
-		    info->name_vmcoreinfo, strerror(errno));
-		goto out;
-	}
-	ret = TRUE;
-out:
+
 	free(buf);
-	return ret;
+	return TRUE;
 }
 
-int
-read_vmcoreinfo_from_vmcore(off_t offset, unsigned long size, int flag_xen_hv)
+static int
+use_orig_vmcoreinfo(const char *key)
 {
-	int ret = FALSE;
+	kdump_status status;
 
-	/*
-	 * Copy vmcoreinfo to /tmp/vmcoreinfoXXXXXX.
-	 */
-	if (!(info->name_vmcoreinfo = strdup(FILENAME_VMCOREINFO))) {
-		MSG("Can't duplicate strings(%s).\n", FILENAME_VMCOREINFO);
+	if (!info->orig_vmcoreinfo)
+		return FALSE;
+
+	status = kdump_set_string_attr(info->ctx_vmcoreinfo, key,
+				       info->orig_vmcoreinfo);
+	 if (status != KDUMP_OK) {
+		ERRMSG("Can't restore vmcoreinfo value: %s\n",
+		       kdump_get_err(info->ctx_vmcoreinfo));
 		return FALSE;
 	}
-	if (!copy_vmcoreinfo(offset, size))
-		goto out;
 
-	/*
-	 * Read vmcoreinfo from /tmp/vmcoreinfoXXXXXX.
-	 */
-	if (!open_vmcoreinfo("r"))
-		goto out;
-
-	unlink(info->name_vmcoreinfo);
-
-	if (flag_xen_hv) {
-		if (!read_vmcoreinfo_xen())
-			goto out;
-	} else {
-		if (!read_vmcoreinfo())
-			goto out;
-	}
-	close_vmcoreinfo();
-
-	ret = TRUE;
-out:
-	free(info->name_vmcoreinfo);
-	info->name_vmcoreinfo = NULL;
-
-	return ret;
+	free(info->orig_vmcoreinfo);
+	info->orig_vmcoreinfo = NULL;
+	return TRUE;
 }
 
 /*
@@ -3552,29 +3534,18 @@ free_for_parallel()
 int
 init_kaslr_offset(void)
 {
-	unsigned int i;
-	char buf[BUFSIZE_FGETS], *endp;
+	const char *val;
+	char *endp;
+	kdump_status status;
 
-	if (fseek(info->file_vmcoreinfo, 0, SEEK_SET) < 0) {
-		ERRMSG("Can't seek the vmcoreinfo file(%s). %s\n",
-			info->name_vmcoreinfo, strerror(errno));
-		return FALSE;
-	}
-
-	while (fgets(buf, BUFSIZE_FGETS, info->file_vmcoreinfo)) {
-		i = strlen(buf);
-		if (!i)
-			break;
-		if (buf[i - 1] == '\n')
-			buf[i - 1] = '\0';
-		if (strncmp(buf, STR_KERNELOFFSET,
-				strlen(STR_KERNELOFFSET)) == 0) {
-			info->kaslr_offset = strtoul(buf +
-				strlen(STR_KERNELOFFSET), &endp, 16);
-			DEBUG_MSG("info->kaslr_offset: %lx\n",
-				info->kaslr_offset);
-		}
-	}
+	status = kdump_get_string_attr(info->ctx_vmcoreinfo,
+			"linux.vmcoreinfo.lines." STR_KERNELOFFSET, &val);
+	if (status == KDUMP_OK) {
+		info->kaslr_offset = strtoul(val, &endp, 16);
+		DEBUG_MSG("info->kaslr_offset: %lx\n",
+			  info->kaslr_offset);
+	} else if (status != KDUMP_ERR_NODATA)
+		return vmcoreinfo_fail(STR_KERNELOFFSET);
 
 	return TRUE;
 }
@@ -3618,33 +3589,8 @@ get_kaslr_offset_general(unsigned long vaddr)
 int
 find_kaslr_offsets()
 {
-	off_t offset;
-	unsigned long size;
-	int ret = FALSE;
-
-	get_vmcoreinfo(&offset, &size);
-
-	if (!(info->name_vmcoreinfo = strdup(FILENAME_VMCOREINFO))) {
-		MSG("Can't duplicate strings(%s).\n", FILENAME_VMCOREINFO);
-		return FALSE;
-	}
-	if (!copy_vmcoreinfo(offset, size))
-		goto out;
-
-	if (!open_vmcoreinfo("r"))
-		goto out;
-
-	unlink(info->name_vmcoreinfo);
-
-	ret = init_kaslr_offset();
-
-	close_vmcoreinfo();
-
-out:
-	free(info->name_vmcoreinfo);
-	info->name_vmcoreinfo = NULL;
-
-	return ret;
+	info->ctx_vmcoreinfo = info->ctx_memory;
+	return init_kaslr_offset();
 }
 
 void
@@ -3722,21 +3668,21 @@ initial(void)
 	 * Get the debug information for analysis from the vmcoreinfo file
 	 */
 	if (info->flag_read_vmcoreinfo) {
-		char *name_vmcoreinfo = info->name_vmcoreinfo;
-		FILE *file_vmcoreinfo = info->file_vmcoreinfo;
-
 		if (has_vmcoreinfo() && !find_kaslr_offsets())
 			return FALSE;
 
-		info->name_vmcoreinfo = name_vmcoreinfo;
-		info->file_vmcoreinfo = file_vmcoreinfo;
+		if (!use_file_vmcoreinfo("linux.vmcoreinfo.raw"))
+			return FALSE;
+		close_vmcoreinfo();
 
 		info->read_text_vmcoreinfo = 1;
 		if (!read_vmcoreinfo())
 			return FALSE;
 		info->read_text_vmcoreinfo = 0;
 
-		close_vmcoreinfo();
+		if (!use_orig_vmcoreinfo("linux.vmcoreinfo.raw"))
+			return FALSE;
+
 		debug_info = TRUE;
 	/*
 	 * Get the debug information for analysis from the kernel file
@@ -3785,7 +3731,7 @@ initial(void)
 	 */
 	if (has_vmcoreinfo()) {
 		get_vmcoreinfo(&offset, &size);
-		if (!read_vmcoreinfo_from_vmcore(offset, size, FALSE))
+		if (!read_vmcoreinfo())
 			return FALSE;
 		debug_info = TRUE;
 	}
@@ -8936,11 +8882,6 @@ close_files_for_creating_dumpfile(void)
 	if (info->max_dump_level > DL_EXCLUDE_ZERO)
 		close_kernel_file();
 
-	/* free name for vmcoreinfo */
-	if (has_vmcoreinfo()) {
-		free(info->name_vmcoreinfo);
-		info->name_vmcoreinfo = NULL;
-	}
 	close_dump_memory();
 
 	close_dump_bitmap();
@@ -9258,7 +9199,7 @@ generate_vmcoreinfo_xen(void)
 	/*
 	 * write 1st kernel's PAGESIZE
 	 */
-	fprintf(info->file_vmcoreinfo, "%s%ld\n", STR_PAGESIZE,
+	fprintf(info->file_vmcoreinfo, "%s=%ld\n", STR_PAGESIZE,
 	    info->page_size);
 
 	/*
@@ -9299,39 +9240,28 @@ int
 read_vmcoreinfo_basic_info_xen(void)
 {
 	long page_size = FALSE;
-	char buf[BUFSIZE_FGETS], *endp;
-	unsigned int i;
+	char *val;
+	char *endp;
+	kdump_status status;
 
-	if (fseek(info->file_vmcoreinfo, 0, SEEK_SET) < 0) {
-		ERRMSG("Can't seek the vmcoreinfo file(%s). %s\n",
-		    info->name_vmcoreinfo, strerror(errno));
-		return FALSE;
-	}
-
-	while (fgets(buf, BUFSIZE_FGETS, info->file_vmcoreinfo)) {
-		i = strlen(buf);
-		if (!i)
-			break;
-		if (buf[i - 1] == '\n')
-			buf[i - 1] = '\0';
-		if (strncmp(buf, STR_PAGESIZE, strlen(STR_PAGESIZE)) == 0) {
-			page_size = strtol(buf+strlen(STR_PAGESIZE),&endp,10);
-			if ((!page_size || page_size == LONG_MAX)
-			    || strlen(endp) != 0) {
-				ERRMSG("Invalid data in %s: %s",
-				    info->name_vmcoreinfo, buf);
-				return FALSE;
-			}
-			if (!set_page_size(page_size)) {
-				ERRMSG("Invalid data in %s: %s",
-				    info->name_vmcoreinfo, buf);
-				return FALSE;
-			}
-			break;
+	status = kdump_vmcoreinfo_line(info->ctx_vmcoreinfo,
+				       STR_PAGESIZE, &val);
+	if (status == KDUMP_OK) {
+		page_size = strtol(val, &endp, 10);
+		if ((!page_size || page_size == LONG_MAX)
+		    || strlen(endp) != 0
+		    || !set_page_size(page_size)) {
+			ERRMSG("Invalid vmcoreinfo data: %s=%s\n",
+			       STR_PAGESIZE, val);
+			free(val);
+			return FALSE;
 		}
-	}
+		free(val);
+	} else if (status != KDUMP_ERR_NODATA)
+		return vmcoreinfo_fail(STR_PAGESIZE);
+
 	if (!info->page_size) {
-		ERRMSG("Invalid format in %s", info->name_vmcoreinfo);
+		ERRMSG("Invalid vmcoreinfo format\n");
 		return FALSE;
 	}
 	return TRUE;
@@ -9340,6 +9270,8 @@ read_vmcoreinfo_basic_info_xen(void)
 int
 read_vmcoreinfo_xen(void)
 {
+	info->ctx_vmcoreinfo = info->ctx_memory_xen;
+
 	if (!read_vmcoreinfo_basic_info_xen())
 		return FALSE;
 
@@ -9609,6 +9541,9 @@ initial_xen(void)
 	 * Get the debug information for analysis from the vmcoreinfo file
 	 */
 	if (info->flag_read_vmcoreinfo) {
+		info->ctx_vmcoreinfo = info->ctx_memory_xen;
+		if (!use_file_vmcoreinfo("xen.vmcoreinfo.raw"))
+			return FALSE;
 		if (!read_vmcoreinfo_xen())
 			return FALSE;
 		close_vmcoreinfo();
@@ -9648,7 +9583,7 @@ initial_xen(void)
 		 * Get the debug information from /proc/vmcore
 		 */
 		get_vmcoreinfo_xen(&offset, &size);
-		if (!read_vmcoreinfo_from_vmcore(offset, size, TRUE))
+		if (!read_vmcoreinfo_xen())
 			return FALSE;
 	}
 
@@ -11275,7 +11210,7 @@ int show_mem_usage(void)
 		unsigned long size;
 
 		get_vmcoreinfo(&offset, &size);
-		vmcoreinfo = read_vmcoreinfo_from_vmcore(offset, size, FALSE);
+		vmcoreinfo = read_vmcoreinfo();
 		DEBUG_MSG("Read vmcoreinfo from NOTE segment: %d\n", vmcoreinfo);
 	}
 
@@ -11776,6 +11711,8 @@ out:
 			free(info->page_buf);
 		if (info->parallel_info != NULL)
 			free(info->parallel_info);
+		if (info->orig_vmcoreinfo != NULL)
+			free(info->orig_vmcoreinfo);
 		free(info);
 
 		if (splitblock) {

@@ -271,14 +271,14 @@ do { \
 #define WRITE_SYMBOL(str_symbol, symbol) \
 do { \
 	if (SYMBOL(symbol) != NOT_FOUND_SYMBOL) { \
-		fprintf(info->file_vmcoreinfo, "%s%llx\n", \
+		fprintf(info->file_vmcoreinfo, "%s=%llx\n", \
 		    STR_SYMBOL(str_symbol), SYMBOL(symbol)); \
 	} \
 } while (0)
 #define READ_SYMBOL(str_symbol, symbol) \
 do { \
 	if (SYMBOL(symbol) == NOT_FOUND_SYMBOL) { \
-		SYMBOL(symbol) = read_vmcoreinfo_symbol(STR_SYMBOL(str_symbol)); \
+		SYMBOL(symbol) = read_vmcoreinfo_symbol(str_symbol); \
 		if (SYMBOL(symbol) == INVALID_SYMBOL_DATA) \
 			return FALSE; \
 		if (info->read_text_vmcoreinfo && \
@@ -338,21 +338,21 @@ do { \
 #define WRITE_STRUCTURE_SIZE(str_structure, structure) \
 do { \
 	if (SIZE(structure) != NOT_FOUND_STRUCTURE) { \
-		fprintf(info->file_vmcoreinfo, "%s%ld\n", \
+		fprintf(info->file_vmcoreinfo, "%s=%ld\n", \
 		    STR_SIZE(str_structure), SIZE(structure)); \
 	} \
 } while (0)
 #define WRITE_MEMBER_OFFSET(str_member, member) \
 do { \
 	if (OFFSET(member) != NOT_FOUND_STRUCTURE) { \
-		fprintf(info->file_vmcoreinfo, "%s%ld\n", \
+		fprintf(info->file_vmcoreinfo, "%s=%ld\n", \
 		    STR_OFFSET(str_member), OFFSET(member)); \
 	} \
 } while (0)
 #define WRITE_ARRAY_LENGTH(str_array, array) \
 do { \
 	if (ARRAY_LENGTH(array) != NOT_FOUND_STRUCTURE) { \
-		fprintf(info->file_vmcoreinfo, "%s%ld\n", \
+		fprintf(info->file_vmcoreinfo, "%s=%ld\n", \
 		    STR_LENGTH(str_array), ARRAY_LENGTH(array)); \
 	} \
 } while (0)
@@ -395,7 +395,7 @@ do {\
 #define WRITE_NUMBER(str_number, number) \
 do { \
 	if (NUMBER(number) != NOT_FOUND_NUMBER) { \
-		fprintf(info->file_vmcoreinfo, "%s%ld\n", \
+		fprintf(info->file_vmcoreinfo, "%s=%ld\n", \
 		    STR_NUMBER(str_number), NUMBER(number)); \
 	} \
 } while (0)
@@ -410,7 +410,7 @@ do { \
 #define WRITE_NUMBER_UNSIGNED(str_number, number) \
 do { \
 	if (NUMBER(number) != NOT_FOUND_NUMBER) { \
-		fprintf(info->file_vmcoreinfo, "%s%lu\n", \
+		fprintf(info->file_vmcoreinfo, "%s=%lu\n", \
 		    STR_NUMBER(str_number), NUMBER(number)); \
 	} \
 } while (0)
@@ -473,16 +473,16 @@ do { \
 /*
  * field name of vmcoreinfo file
  */
-#define STR_OSRELEASE		"OSRELEASE="
-#define STR_PAGESIZE		"PAGESIZE="
-#define STR_CRASHTIME		"CRASHTIME="
-#define STR_SYMBOL(X)		"SYMBOL("X")="
-#define STR_SIZE(X)		"SIZE("X")="
-#define STR_OFFSET(X)		"OFFSET("X")="
-#define STR_LENGTH(X)		"LENGTH("X")="
-#define STR_NUMBER(X)		"NUMBER("X")="
-#define STR_CONFIG_X86_PAE	"CONFIG_X86_PAE=y"
-#define STR_KERNELOFFSET	"KERNELOFFSET="
+#define STR_OSRELEASE		"OSRELEASE"
+#define STR_PAGESIZE		"PAGESIZE"
+#define STR_CRASHTIME		"CRASHTIME"
+#define STR_SYMBOL(X)		"SYMBOL("X")"
+#define STR_SIZE(X)		"SIZE("X")"
+#define STR_OFFSET(X)		"OFFSET("X")"
+#define STR_LENGTH(X)		"LENGTH("X")"
+#define STR_NUMBER(X)		"NUMBER("X")"
+#define STR_CONFIG_X86_PAE	"CONFIG_X86_PAE"
+#define STR_KERNELOFFSET	"KERNELOFFSET"
 
 /*
  * common value
@@ -1317,8 +1317,10 @@ struct DumpInfo {
 	 */
 	FILE			*file_vmcoreinfo;
 	char			*name_vmcoreinfo;	     /* vmcoreinfo file */
+	kdump_ctx_t		*ctx_vmcoreinfo;
 	char			release[STRLEN_OSRELEASE];
 	int			read_text_vmcoreinfo;
+	char			*orig_vmcoreinfo;
 
 	/*
 	 * ELF NOTE section in dump memory image info:
