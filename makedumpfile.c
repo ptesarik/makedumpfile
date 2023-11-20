@@ -268,6 +268,62 @@ get_max_mapnr(void)
 }
 
 /*
+ * Find the largest PFN that can be translated to a MFN.
+ */
+static int
+find_dom0_mapnr(void)
+{
+	addrxlat_map_t *map;
+	const addrxlat_range_t *range;
+	addrxlat_step_t xlat;
+	addrxlat_addr_t left, right, addr;
+	addrxlat_status err;
+	kdump_status status;
+
+	status = kdump_get_addrxlat(info->ctx_memory, &xlat.ctx, &xlat.sys);
+	if (status != KDUMP_OK) {
+		ERRMSG("Can't get address translation: %s.\n",
+		       kdump_get_err(info->ctx_memory));
+		return FALSE;
+	}
+
+	map = addrxlat_sys_get_map(xlat.sys, ADDRXLAT_SYS_MAP_KPHYS_MACHPHYS);
+	if (!map || addrxlat_map_len(map) < 1)
+		goto err;
+
+	range = addrxlat_map_ranges(map);
+	xlat.meth = addrxlat_sys_get_meth(xlat.sys, range->meth);
+
+	left = 0;
+	right = (range->endoff + 1) >> PAGESHIFT();
+	while (right - left > 1) {
+		addr = ((left + right) >> 1) << PAGESHIFT();
+		xlat.base.addr = addr;
+		err = addrxlat_walk(&xlat);
+		if (err == ADDRXLAT_OK)
+			left = addr >> PAGESHIFT();
+		else if (err == ADDRXLAT_ERR_NOTPRESENT)
+			right = addr >> PAGESHIFT();
+		else
+			goto err_xlat;
+	}
+
+	info->dom0_mapnr = right;
+
+	addrxlat_sys_decref(xlat.sys);
+	addrxlat_ctx_decref(xlat.ctx);
+	return TRUE;
+
+ err_xlat:
+	ERRMSG("Can't translate a physical address (0x%"ADDRXLAT_PRIxADDR") to machine address: %s.\n",
+	       addr, addrxlat_ctx_get_err(xlat.ctx));
+ err:
+	addrxlat_sys_decref(xlat.sys);
+	addrxlat_ctx_decref(xlat.ctx);
+	return FALSE;
+}
+
+/*
  * Get the number of the page descriptors for Xen.
  */
 int
@@ -282,34 +338,7 @@ get_dom0_mapnr()
 		}
 
 		info->dom0_mapnr = max_pfn;
-	} else if (info->p2m_frames) {
-		unsigned long mfn_idx = info->p2m_frames - 1;
-		unsigned long long maddr;
-		unsigned long *mfns;
-		unsigned i;
-
-		mfns = malloc(sizeof(*mfns) * MFNS_PER_FRAME);
-		if (!mfns) {
-			ERRMSG("Can't allocate mfns buffer: %s\n", strerror(errno));
-			return FALSE;
-		}
-
-		maddr = pfn_to_paddr(info->p2m_mfn_frame_list[mfn_idx]);
-		if (!readmem(PADDR, maddr, mfns, MFNS_PER_FRAME)) {
-			ERRMSG("Can't read %ld domain-0 mfns at 0x%llu\n",
-				(long)MFNS_PER_FRAME, maddr);
-			free(mfns);
-			return FALSE;
-		}
-
-		for (i = 0; i < MFNS_PER_FRAME; ++i)
-			if (!mfns[i])
-				break;
-
-		info->dom0_mapnr = mfn_idx * MFNS_PER_FRAME + i;
-
-		free(mfns);
-	} else {
+	} else if (!find_dom0_mapnr()) {
 		/* dom0_mapnr is unavailable, which may be non-critical */
 		return TRUE;
 	}
