@@ -680,7 +680,8 @@ open_dump_memory(int *fdp, kdump_ctx_t **ctxp)
 		ERRMSG("Can't allocate libkdumpfile context.");
 		goto error;
 	}
-	if (kdump_set_number_attr(ctx, "cache.size", PAGE_CACHE_SIZE)
+	if (kdump_set_number_attr(ctx, "cache.size",
+				  (info->num_threads ?: 1) * PAGE_CACHE_SIZE)
 	    != KDUMP_OK) {
 		ERRMSG("Can't set libkdumpfile cache size.");
 		goto error_ctx;
@@ -3448,9 +3449,12 @@ initial_for_parallel()
 	 * initial fd_memory for threads
 	 */
 	for (i = 0; i < info->num_threads; i++) {
-		if (!open_dump_memory(&FD_MEMORY_PARALLEL(i),
-				      &CTX_MEMORY_PARALLEL(i)))
+		CTX_MEMORY_PARALLEL(i) =
+			kdump_clone(info->ctx_memory, 0);
+		if (!CTX_MEMORY_PARALLEL(i)) {
+			ERRMSG("Can't allocate libkdumpfile context.\n");
 			return FALSE;
+		}
 
 		if ((FD_BITMAP_MEMORY_PARALLEL(i) =
 				open(info->name_memory, O_RDONLY)) < 0) {
@@ -3533,8 +3537,6 @@ free_for_parallel()
 	for (i = 0; i < info->num_threads; i++) {
 		if (CTX_MEMORY_PARALLEL(i))
 			kdump_free(CTX_MEMORY_PARALLEL(i));
-		if (FD_MEMORY_PARALLEL(i) >= 0)
-			close(FD_MEMORY_PARALLEL(i));
 
 		if (FD_BITMAP_MEMORY_PARALLEL(i) >= 0)
 			close(FD_BITMAP_MEMORY_PARALLEL(i));

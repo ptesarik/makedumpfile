@@ -464,7 +464,6 @@ do { \
 /*
  * Macro for getting parallel info.
  */
-#define FD_MEMORY_PARALLEL(i)		info->parallel_info[i].fd_memory
 #define CTX_MEMORY_PARALLEL(i)		info->parallel_info[i].ctx_memory
 #define FD_BITMAP_MEMORY_PARALLEL(i)	info->parallel_info[i].fd_bitmap_memory
 #define FD_BITMAP_PARALLEL(i)		info->parallel_info[i].fd_bitmap
@@ -1472,7 +1471,6 @@ struct splitting_info {
 };
 
 struct parallel_info {
-	int			fd_memory;
 	kdump_ctx_t		*ctx_memory;
 	int 			fd_bitmap_memory;
 	int			fd_bitmap;
