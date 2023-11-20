@@ -48,10 +48,6 @@ get_kaslr_offset_x86_64(unsigned long vaddr)
 {
 	unsigned long kernel_image_size;
 
-	if (!info->kaslr_offset && info->file_vmcoreinfo) {
-		if (!init_kaslr_offset())
-			return 0;
-	}
 	if (!info->kaslr_offset || !vaddr)
 		return 0;
 

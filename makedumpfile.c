@@ -3585,10 +3585,6 @@ get_kaslr_offset_general(unsigned long vaddr)
 	static unsigned long _text = NOT_FOUND_SYMBOL;
 	static unsigned long _end = NOT_FOUND_SYMBOL;
 
-	if (!info->kaslr_offset && info->file_vmcoreinfo) {
-		if (!init_kaslr_offset())
-			return 0;
-	}
 	if (!info->kaslr_offset || !vaddr)
 		return 0;
 
@@ -3640,20 +3636,10 @@ find_kaslr_offsets()
 
 	unlink(info->name_vmcoreinfo);
 
-	/*
-	 * This arch specific function should update info->kaslr_offset. If
-	 * kaslr is not enabled then offset will be set to 0. arch specific
-	 * function might need to read from vmcoreinfo, therefore we have
-	 * called this function between open_vmcoreinfo() and
-	 * close_vmcoreinfo()
-	 * And the argument is not needed, because we don't use the return
-	 * value here. So pass it 0 explicitly.
-	 */
-	get_kaslr_offset(0);
+	ret = init_kaslr_offset();
 
 	close_vmcoreinfo();
 
-	ret = TRUE;
 out:
 	free(info->name_vmcoreinfo);
 	info->name_vmcoreinfo = NULL;
