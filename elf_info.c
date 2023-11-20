@@ -339,10 +339,6 @@ get_pt_note_info(void)
 	next_note:
 		offset += offset_next_note(note);
 	}
-	if (is_xen_memory())
-		DEBUG_MSG("Xen kdump\n");
-	else
-		DEBUG_MSG("Linux kdump\n");
 
 	return TRUE;
 }
@@ -710,14 +706,6 @@ int
 is_elf64_memory(void)
 {
 	return (flags_memory & MEMORY_ELF64);
-}
-
-int
-is_xen_memory(void)
-{
-	kdump_num_t num = KDUMP_XEN_NONE;
-	kdump_get_number_attr(info->ctx_memory, KDUMP_ATTR_XEN_TYPE, &num);
-	return num != KDUMP_XEN_NONE;
 }
 
 int

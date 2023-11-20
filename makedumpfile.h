@@ -1319,6 +1319,7 @@ struct DumpInfo {
 	/*
 	 * for Xen extraction
 	 */
+	int is_xen;
 	union {				/* Both versions of Xen crash info: */
 		xen_crash_info_com_t *com;   /* common fields */
 		xen_crash_info_t *v1;	     /* without xen_phys_start */
@@ -1979,6 +1980,12 @@ struct domain_list {
 
 #define PAGES_PER_MAPWORD 	(sizeof(unsigned long) * 8)
 #define MFNS_PER_FRAME		(info->page_size / sizeof(unsigned long))
+
+static inline int
+is_xen_memory(void)
+{
+	return info->is_xen;
+}
 
 #ifdef __arm__
 #define get_xen_basic_info_arch(X) FALSE

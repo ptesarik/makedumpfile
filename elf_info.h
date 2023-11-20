@@ -41,7 +41,6 @@ void free_elf_info(void);
 int get_kcore_dump_loads(void);
 
 int is_elf64_memory(void);
-int is_xen_memory(void);
 
 int get_elf64_phnum(int fd, char *filename, Elf64_Ehdr *ehdr, int *phnum);
 int get_phnum_memory(void);

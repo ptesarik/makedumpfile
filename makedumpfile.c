@@ -980,6 +980,7 @@ open_files_for_rearranging_dumpdata(void)
 int
 open_files_for_creating_dumpfile(void)
 {
+	kdump_num_t num;
 	int status;
 
 	if (info->flag_read_vmcoreinfo) {
@@ -991,6 +992,16 @@ open_files_for_creating_dumpfile(void)
 	}
 	if (!open_dump_memory(&info->fd_memory, &info->ctx_memory))
 		return FALSE;
+
+	num = KDUMP_XEN_NONE;
+	kdump_get_number_attr(info->ctx_memory, KDUMP_ATTR_XEN_TYPE, &num);
+	if (num != KDUMP_XEN_NONE) {
+		info->is_xen = TRUE;
+		DEBUG_MSG("Xen kdump\n");
+	} else {
+		info->is_xen = FALSE;
+		DEBUG_MSG("Linux kdump\n");
+	}
 
 	status = check_kdump_compressed(info->name_memory);
 	if (status == TRUE) {
