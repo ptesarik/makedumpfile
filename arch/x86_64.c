@@ -302,15 +302,6 @@ get_versiondep_info_x86_64(void)
 
 int get_xen_basic_info_x86_64(void)
 {
- 	if (!info->xen_phys_start) {
-		if (info->xen_crash_info_v < 2) {
-			ERRMSG("Can't get Xen physical start address.\n"
-			       "Please use the --xen_phys_start option.");
-			return FALSE;
-		}
-		info->xen_phys_start = info->xen_crash_info.v2->xen_phys_start;
-	}
-
 	info->xen_virt_start = SYMBOL(domain_list);
 
 	/*

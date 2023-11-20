@@ -9580,6 +9580,14 @@ initial_xen(void)
 		ERRMSG("Cannot allocate Xen libkdumpfile context");
 		return FALSE;
 	}
+	if (info->xen_phys_start
+	    && kdump_set_number_attr(info->ctx_memory_xen,
+				     KDUMP_ATTR_XEN_PHYS_START,
+				     info->xen_phys_start) != KDUMP_OK) {
+		ERRMSG("Can't set Xen physical start: %s\n",
+		       kdump_get_err(info->ctx_memory_xen));
+		return FALSE;
+	}
 	if (!set_memory_ostype(info->ctx_memory_xen, "xen"))
 		return FALSE;
 
