@@ -1417,7 +1417,7 @@ error:
 int
 open_dump_memory(void)
 {
-	int fd, status;
+	int fd;
 
 	if ((fd = open(info->name_memory, O_RDONLY)) < 0) {
 		ERRMSG("Can't open the dump memory(%s). %s\n",
@@ -1425,14 +1425,7 @@ open_dump_memory(void)
 		return FALSE;
 	}
 	info->fd_memory = fd;
-
-	status = check_kdump_compressed(info->name_memory);
-	if (status == TRUE) {
-		info->flag_refiltering = TRUE;
-		return get_kdump_compressed_header_info(info->name_memory);
-	}
-
-	return check_and_get_sadump_header_info(info->name_memory);
+	return TRUE;
 }
 
 int
@@ -1591,6 +1584,8 @@ open_files_for_rearranging_dumpdata(void)
 int
 open_files_for_creating_dumpfile(void)
 {
+	int status;
+
 	if (info->flag_read_vmcoreinfo) {
 		if (!open_vmcoreinfo("r"))
 			return FALSE;
@@ -1601,7 +1596,13 @@ open_files_for_creating_dumpfile(void)
 	if (!open_dump_memory())
 		return FALSE;
 
-	return TRUE;
+	status = check_kdump_compressed(info->name_memory);
+	if (status == TRUE) {
+		info->flag_refiltering = TRUE;
+		return get_kdump_compressed_header_info(info->name_memory);
+	}
+
+	return check_and_get_sadump_header_info(info->name_memory);
 }
 
 int
