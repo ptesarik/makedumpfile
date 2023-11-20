@@ -1386,6 +1386,7 @@ int
 open_dump_memory(int *fdp, kdump_ctx_t **ctxp)
 {
 	int fd;
+	kdump_mmap_policy_t mmap_policy;
 	kdump_ctx_t *ctx;
 
 	if ((fd = open(info->name_memory, O_RDONLY)) < 0) {
@@ -1402,6 +1403,15 @@ open_dump_memory(int *fdp, kdump_ctx_t **ctxp)
 	if (kdump_set_number_attr(ctx, "cache.size", PAGE_CACHE_SIZE)
 	    != KDUMP_OK) {
 		ERRMSG("Can't set libkdumpfile cache size.");
+		goto error_ctx;
+	}
+
+	mmap_policy = info->flag_usemmap
+		? KDUMP_MMAP_TRY_ONCE
+		: KDUMP_MMAP_NEVER;
+	if (kdump_set_number_attr(ctx, KDUMP_ATTR_FILE_MMAP_POLICY,
+				  mmap_policy) != KDUMP_OK) {
+		ERRMSG("Can't set mmap policy: %s\n", kdump_get_err(ctx));
 		goto error_ctx;
 	}
 
@@ -4690,16 +4700,22 @@ out:
 
 	init_compound_offset();
 
-	if (info->flag_usemmap == MMAP_TRY ) {
-		if (initialize_mmap()) {
+	if (info->flag_usemmap == TRUE) {
+		kdump_attr_t attr;
+		if (kdump_get_attr(info->ctx_memory,
+				   KDUMP_ATTR_FILE_MMAP_POLICY,
+				   &attr) != KDUMP_OK) {
+			DEBUG_MSG("Cannot get mmap() policy: %s\n",
+				  kdump_get_err(info->ctx_memory));
+		} else if (attr.val.number == KDUMP_MMAP_ALWAYS) {
 			DEBUG_MSG("mmap() is available on the kernel.\n");
-			info->flag_usemmap = MMAP_ENABLE;
-		} else {
+		} else if (attr.val.number == KDUMP_MMAP_NEVER) {
 			DEBUG_MSG("The kernel doesn't support mmap(),");
 			DEBUG_MSG("read() will be used instead.\n");
-			info->flag_usemmap = MMAP_DISABLE;
+		} else {
+			DEBUG_MSG("Cannot determine mmap() support.\n");
 		}
-        } else if (info->flag_usemmap == MMAP_DISABLE)
+        } else
 		DEBUG_MSG("mmap() is disabled by specified option '--non-mmap'.\n");
 
 	return TRUE;
@@ -12072,7 +12088,7 @@ main(int argc, char *argv[])
 	/*
 	 * By default, makedumpfile try to use mmap(2) to read /proc/vmcore.
 	 */
-	info->flag_usemmap = MMAP_TRY;
+	info->flag_usemmap = TRUE;
 
 	info->block_order = DEFAULT_ORDER;
 	message_level = DEFAULT_MSG_LEVEL;
@@ -12193,7 +12209,7 @@ main(int argc, char *argv[])
 			info->name_xen_syms = optarg;
 			break;
 		case OPT_NON_MMAP:
-			info->flag_usemmap = MMAP_DISABLE;
+			info->flag_usemmap = FALSE;
 			break;
 		case OPT_XEN_VMCOREINFO:
 			info->flag_read_vmcoreinfo = 1;
