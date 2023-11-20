@@ -1684,7 +1684,6 @@ struct DumpInfo {
 	struct domain_list *domain_list;
 #if defined(__x86_64__)
 	unsigned long xen_virt_start;
-	unsigned long directmap_virt_end;
 #endif
 
 	/*
@@ -2337,32 +2336,14 @@ struct domain_list {
 #define PAGES_PER_MAPWORD 	(sizeof(unsigned long) * 8)
 #define MFNS_PER_FRAME		(info->page_size / sizeof(unsigned long))
 
-#ifdef __aarch64__
-unsigned long long kvtop_xen_arm64(unsigned long kvaddr);
-#define kvtop_xen(X)	kvtop_xen_arm64(X)
-#endif /* aarch64 */
-
 #ifdef __arm__
-#define kvtop_xen(X)	FALSE
 #define get_xen_basic_info_arch(X) FALSE
 #define get_xen_info_arch(X) FALSE
 #endif	/* arm */
 
 #ifdef __x86__
-#define HYPERVISOR_VIRT_START_PAE	(0xF5800000UL)
-#define HYPERVISOR_VIRT_START		(0xFC000000UL)
-#define HYPERVISOR_VIRT_END		(0xFFFFFFFFUL)
 #define DIRECTMAP_VIRT_START		(0xFF000000UL)
-#define DIRECTMAP_VIRT_END		(0xFFC00000UL)
 #define FRAMETABLE_VIRT_START		(0xF6800000UL)
-
-#define is_xen_vaddr(x) \
-	((x) >= HYPERVISOR_VIRT_START_PAE && (x) < HYPERVISOR_VIRT_END)
-#define is_direct(x) \
-	((x) >= DIRECTMAP_VIRT_START && (x) < DIRECTMAP_VIRT_END)
-
-unsigned long long kvtop_xen_x86(unsigned long kvaddr);
-#define kvtop_xen(X)	kvtop_xen_x86(X)
 
 int get_xen_basic_info_x86(void);
 #define get_xen_basic_info_arch(X) get_xen_basic_info_x86(X)
@@ -2380,26 +2361,11 @@ int get_xen_info_x86(void);
 #define MAX_X86_64_FRAMES	(info->page_size / sizeof(unsigned long))
 
 #define PAGE_OFFSET_XEN_DOM0		(0xffff880000000000) /* different from linux */
-#define HYPERVISOR_VIRT_START		(0xffff800000000000)
-#define HYPERVISOR_VIRT_END		(0xffff880000000000)
 #define DIRECTMAP_VIRT_START		(0xffff830000000000)
-#define DIRECTMAP_VIRT_END_V3		(0xffff840000000000)
-#define DIRECTMAP_VIRT_END_V4		(0xffff880000000000)
-#define DIRECTMAP_VIRT_END		(info->directmap_virt_end)
 #define XEN_VIRT_START			(info->xen_virt_start)
 #define XEN_VIRT_END			(XEN_VIRT_START + (1UL << 30))
 #define FRAMETABLE_VIRT_START_V3	0xffff82f600000000
 #define FRAMETABLE_VIRT_START_V4_3	0xffff82e000000000
-
-#define is_xen_vaddr(x) \
-	((x) >= HYPERVISOR_VIRT_START && (x) < HYPERVISOR_VIRT_END)
-#define is_direct(x) \
-	((x) >= DIRECTMAP_VIRT_START && (x) < DIRECTMAP_VIRT_END)
-#define is_xen_text(x) \
-	((x) >= XEN_VIRT_START && (x) < XEN_VIRT_END)
-
-unsigned long long kvtop_xen_x86_64(unsigned long kvaddr);
-#define kvtop_xen(X)	kvtop_xen_x86_64(X)
 
 int get_xen_basic_info_x86_64(void);
 #define get_xen_basic_info_arch(X) get_xen_basic_info_x86_64(X)
@@ -2409,22 +2375,12 @@ int get_xen_info_x86_64(void);
 #endif	/* __x86_64__ */
 
 #ifdef __ia64__
-#define HYPERVISOR_VIRT_START	(0xe800000000000000)
-#define HYPERVISOR_VIRT_END	(0xf800000000000000)
 #define DEFAULT_SHAREDINFO_ADDR	(0xf100000000000000)
 #define PERCPU_PAGE_SIZE	65536
 #define PERCPU_ADDR		(DEFAULT_SHAREDINFO_ADDR - PERCPU_PAGE_SIZE)
 #define DIRECTMAP_VIRT_START	(0xf000000000000000)
-#define DIRECTMAP_VIRT_END	PERCPU_ADDR
 #define VIRT_FRAME_TABLE_ADDR	(0xf300000000000000)
 #define VIRT_FRAME_TABLE_END	(0xf400000000000000)
-
-#define is_xen_vaddr(x) \
-	((x) >= HYPERVISOR_VIRT_START && (x) < HYPERVISOR_VIRT_END)
-#define is_direct(x) \
-	((x) >= DIRECTMAP_VIRT_START && (x) < DIRECTMAP_VIRT_END)
-#define is_frame_table_vaddr(x) \
-	((x) >= VIRT_FRAME_TABLE_ADDR && (x) < VIRT_FRAME_TABLE_END)
 
 #define PGDIR_SHIFT	(PAGESHIFT() + 2 * (PAGESHIFT() - 3))
 #define PTRS_PER_PGD	(1UL << (PAGESHIFT() - 3))
@@ -2435,9 +2391,6 @@ int get_xen_info_x86_64(void);
 #define _PAGE_P		(1)
 #define _PFN_MASK	(((1UL << IA64_MAX_PHYS_BITS) - 1) & ~0xfffUL)
 
-unsigned long long kvtop_xen_ia64(unsigned long kvaddr);
-#define kvtop_xen(X)	kvtop_xen_ia64(X)
-
 int get_xen_basic_info_ia64(void);
 #define get_xen_basic_info_arch(X) get_xen_basic_info_ia64(X)
 int get_xen_info_ia64(void);
@@ -2446,37 +2399,31 @@ int get_xen_info_ia64(void);
 #endif	/* __ia64 */
 
 #if defined(__powerpc64__) || defined(__powerpc32__) /* powerpcXX */
-#define kvtop_xen(X)	FALSE
 #define get_xen_basic_info_arch(X) FALSE
 #define get_xen_info_arch(X) FALSE
 #endif	/* powerpcXX */
 
 #ifdef __s390x__ /* s390x */
-#define kvtop_xen(X)	FALSE
 #define get_xen_basic_info_arch(X) FALSE
 #define get_xen_info_arch(X) FALSE
 #endif	/* s390x */
 
 #ifdef __sparc64__ /* sparc64 */
-#define kvtop_xen(X)	FALSE
 #define get_xen_basic_info_arch(X) FALSE
 #define get_xen_info_arch(X) FALSE
 #endif	/* sparc64 */
 
 #ifdef __mips64__ /* mips64 */
-#define kvtop_xen(X)	FALSE
 #define get_xen_basic_info_arch(X) FALSE
 #define get_xen_info_arch(X) FALSE
 #endif	/* mips64 */
 
 #ifdef __loongarch64__ /* loongarch64 */
-#define kvtop_xen(X)	FALSE
 #define get_xen_basic_info_arch(X) FALSE
 #define get_xen_info_arch(X) FALSE
 #endif /* loongarch64 */
 
 #ifdef __riscv64__ /* riscv64 */
-#define kvtop_xen(X)	FALSE
 #define get_xen_basic_info_arch(X) FALSE
 #define get_xen_info_arch(X) FALSE
 #endif /* riscv64 */

@@ -197,12 +197,6 @@ get_machdep_info_arm64(void)
 	return TRUE;
 }
 
-unsigned long long
-kvtop_xen_arm64(unsigned long kvaddr)
-{
-	return ERROR;
-}
-
 int
 get_xen_basic_info_arm64(void)
 {

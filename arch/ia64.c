@@ -83,54 +83,6 @@ get_machdep_info_ia64(void)
 	return TRUE;
 }
 
-/*
- * for Xen extraction
- */
-unsigned long long
-kvtop_xen_ia64(unsigned long kvaddr)
-{
-	unsigned long long addr, dirp, entry;
-
-	if (!is_xen_vaddr(kvaddr))
-		return NOT_PADDR;
-
-	if (is_direct(kvaddr))
-		return (unsigned long)kvaddr - DIRECTMAP_VIRT_START;
-
-	if (!is_frame_table_vaddr(kvaddr))
-		return NOT_PADDR;
-
-	addr = kvaddr - VIRT_FRAME_TABLE_ADDR;
-
-	dirp = SYMBOL(frametable_pg_dir) - DIRECTMAP_VIRT_START;
-	dirp += ((addr >> PGDIR_SHIFT) & (PTRS_PER_PGD - 1)) * sizeof(unsigned long long);
-	if (!readmem(PADDR, dirp, &entry, sizeof(entry)))
-		return NOT_PADDR;
-
-	dirp = entry & _PFN_MASK;
-	if (!dirp)
-		return NOT_PADDR;
-
-	dirp += ((addr >> PMD_SHIFT) & (PTRS_PER_PMD - 1)) * sizeof(unsigned long long);
-	if (!readmem(PADDR, dirp, &entry, sizeof(entry)))
-		return NOT_PADDR;
-
-	dirp = entry & _PFN_MASK;
-	if (!dirp)
-		return NOT_PADDR;
-
-	dirp += ((addr >> PAGESHIFT()) & (PTRS_PER_PTE - 1)) * sizeof(unsigned long long);
-	if (!readmem(PADDR, dirp, &entry, sizeof(entry)))
-		return NOT_PADDR;
-
-	if (!(entry & _PAGE_P))
-		return NOT_PADDR;
-
-	entry = (entry & _PFN_MASK) + (addr & ((1UL << PAGESHIFT()) - 1));
-
-	return entry;
-}
-
 int
 get_xen_basic_info_ia64(void)
 {

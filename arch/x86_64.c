@@ -321,81 +321,6 @@ get_versiondep_info_x86_64(void)
 	return TRUE;
 }
 
-/*
- * for Xen extraction
- */
-unsigned long long
-kvtop_xen_x86_64(unsigned long kvaddr)
-{
-	unsigned long long dirp, entry;
-
-	if (!is_xen_vaddr(kvaddr))
-		return NOT_PADDR;
-
-	if (is_xen_text(kvaddr))
-		return (unsigned long)kvaddr - XEN_VIRT_START + info->xen_phys_start;
-
-	if (is_direct(kvaddr))
-		return (unsigned long)kvaddr - DIRECTMAP_VIRT_START;
-
-	if ((dirp = kvtop_xen_x86_64(SYMBOL(pgd_l4))) == NOT_PADDR)
-		return NOT_PADDR;
-
-	/*
-	 * Get PGD.
-	 */
-	dirp += pgd_index(kvaddr) * sizeof(unsigned long long);
-	if (!readmem(PADDR, dirp, &entry, sizeof(entry)))
-		return NOT_PADDR;
-
-	if (!(entry & _PAGE_PRESENT))
-		return NOT_PADDR;
-
-	/*
-	 * Get PUD.
-	 */
-	dirp = entry & ENTRY_MASK;
-	dirp += pud_index(kvaddr) * sizeof(unsigned long long);
-	if (!readmem(PADDR, dirp, &entry, sizeof(entry)))
-		return NOT_PADDR;
-
-	if (!(entry & _PAGE_PRESENT))
-		return NOT_PADDR;
-
-	if (entry & _PAGE_PSE)		/* 1GB pages */
-		return (entry & ENTRY_MASK & PUD_MASK) +
-			(kvaddr & ~PUD_MASK);
-
-	/*
-	 * Get PMD.
-	 */
-	dirp = entry & ENTRY_MASK;
-	dirp += pmd_index(kvaddr) * sizeof(unsigned long long);
-	if (!readmem(PADDR, dirp, &entry, sizeof(entry)))
-		return NOT_PADDR;
-
-	if (!(entry & _PAGE_PRESENT))
-		return NOT_PADDR;
-
-	if (entry & _PAGE_PSE)		/* 2MB pages */
-		return (entry & ENTRY_MASK & PMD_MASK) +
-			(kvaddr & ~PMD_MASK);
-
-	/*
-	 * Get PTE.
-	 */
-	dirp = entry & ENTRY_MASK;
-	dirp += pte_index(kvaddr) * sizeof(unsigned long long);
-	if (!readmem(PADDR, dirp, &entry, sizeof(entry)))
-		return NOT_PADDR;
-
-	if (!(entry & _PAGE_PRESENT)) {
-		return NOT_PADDR;
-	}
-
-	return (entry & ENTRY_MASK) + PAGEOFFSET(kvaddr);
-}
-
 int get_xen_basic_info_x86_64(void)
 {
  	if (!info->xen_phys_start) {
@@ -415,12 +340,6 @@ int get_xen_basic_info_x86_64(void)
 	 * 1 GiB below beginning of virtual address space.
 	 */
 	info->xen_virt_start &= 0xffffffffc0000000;
-
-	if (info->xen_crash_info.com &&
-	    info->xen_crash_info.com->xen_major_version >= 4)
-		info->directmap_virt_end = DIRECTMAP_VIRT_END_V4;
-	else
-		info->directmap_virt_end = DIRECTMAP_VIRT_END_V3;
 
 	if (SYMBOL(pgd_l4) == NOT_FOUND_SYMBOL) {
 		ERRMSG("Can't get pml4.\n");

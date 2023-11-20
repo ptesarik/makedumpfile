@@ -112,56 +112,6 @@ get_versiondep_info_x86(void)
 	return TRUE;
 }
 
-/*
- * for Xen extraction
- */
-unsigned long long
-kvtop_xen_x86(unsigned long kvaddr)
-{
-	unsigned long long dirp, entry;
-
-	if (!is_xen_vaddr(kvaddr))
-		return NOT_PADDR;
-
-	if (is_direct(kvaddr))
-		return (unsigned long)kvaddr - DIRECTMAP_VIRT_START;
-
-	if ((dirp = kvtop_xen_x86(SYMBOL(pgd_l3))) == NOT_PADDR)
-		return NOT_PADDR;
-	dirp += pgd_index_PAE(kvaddr) * sizeof(unsigned long long);
-	if (!readmem(PADDR, dirp, &entry, sizeof(entry)))
-		return NOT_PADDR;
-
-	if (!(entry & _PAGE_PRESENT))
-		return NOT_PADDR;
-
-	dirp = entry & ENTRY_MASK;
-	dirp += pmd_index(kvaddr) * sizeof(unsigned long long);
-	if (!readmem(PADDR, dirp, &entry, sizeof(entry)))
-		return NOT_PADDR;
-
-	if (!(entry & _PAGE_PRESENT))
-		return NOT_PADDR;
-
-	if (entry & _PAGE_PSE) {
-		entry = (entry & ENTRY_MASK) + (kvaddr & ((1UL << PMD_SHIFT) - 1));
-		return entry;
-	}
-
-	dirp = entry & ENTRY_MASK;
-	dirp += pte_index(kvaddr) * sizeof(unsigned long long);
-	if (!readmem(PADDR, dirp, &entry, sizeof(entry)))
-		return NOT_PADDR;
-
-	if (!(entry & _PAGE_PRESENT)) {
-		return NOT_PADDR;
-	}
-
-	entry = (entry & ENTRY_MASK) + (kvaddr & ((1UL << PTE_SHIFT) - 1));
-
-	return entry;
-}
-
 int get_xen_basic_info_x86(void)
 {
 	if (SYMBOL(pgd_l2) == NOT_FOUND_SYMBOL &&
